@@ -13,4 +13,25 @@ class PickupPointRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, PickupPoint::class);
     }
+
+    public function findActiveById(int $id): ?PickupPoint
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.id = :id')
+            ->andWhere('p.isActive = true')
+            ->setParameter('id', $id)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function findFirstActive(): ?PickupPoint
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.isActive = true')
+            ->orderBy('p.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

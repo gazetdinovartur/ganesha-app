@@ -13,4 +13,9 @@ class CustomerRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Customer::class);
     }
+
+    public function findOneByPhone(string $phone): ?Customer
+    {
+        return $this->findOneBy(['phone' => $phone]);
+    }
 }

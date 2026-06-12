@@ -1,6 +1,14 @@
 parameters:
     app_timezone_default: 'Asia/Yekaterinburg'
+    app_order_cutoff_hour_default: 18
+    app_order_menu_horizon_days_default: 7
     app.admin_email: '%env(ADMIN_EMAIL)%'
     app.admin_password: '%env(ADMIN_PASSWORD)%'
     app.timezone: '%env(default:app_timezone_default:APP_TIMEZONE)%'
+    app.order_cutoff_hour: '%env(int:default:app_order_cutoff_hour_default:ORDER_CUTOFF_HOUR)%'
+    app.order_menu_horizon_days: '%env(int:default:app_order_menu_horizon_days_default:ORDER_MENU_HORIZON_DAYS)%'
     app.payment_webhook_secret: '%env(PAYMENT_WEBHOOK_SECRET)%'
+    app.payment_qr_url: '%env(default::PAYMENT_QR_URL)%'
+    app.payment_card: '%env(default::PAYMENT_CARD)%'
+    app.sber_webhook_secret: '%env(default::SBER_WEBHOOK_SECRET)%'
+    app.yookassa_webhook_secret: '%env(default::YOOKASSA_WEBHOOK_SECRET)%'

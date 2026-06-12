@@ -8,7 +8,7 @@
 | **1** | Seed: admin + точка выдачи «Хануман» | ✓ |
 | **2** | Админка: EasyAdmin + menu-week + menu-day + kitchen | ✓ |
 | **3** | Web: календарь, корзина, QR/оплата, статус заказа, «О нас» | |
-| **4** | `OrderService`: создание заказа, cutoff, snapshot блюд | |
+| **4** | `OrderService`: создание заказа, cutoff, snapshot блюд | ✓ |
 | **5** | Интеграция платёжного провайдера → webhook (см. [backend.md](backend.md#оплата)) | частично ✓ |
 | **6** | TG + VK боты (дублируют web-flow) | |
 | **7** | Повтор заказа (`repeatToken`), уведомления | |
@@ -36,17 +36,17 @@
 
 ## Этап 4 — OrderService
 
-- [ ] `OrderService::create()` из DTO
-- [ ] Проверка cutoff (18:00 D−1, `Asia/Yekaterinburg`)
-- [ ] `humanNumber`, `uuid`, `repeatToken`
-- [ ] `dishSnapshot` + increment `orderedPortions`
+- [x] `OrderService::create()` из DTO
+- [x] Проверка cutoff (18:00 D−1, `Asia/Yekaterinburg`)
+- [x] `humanNumber`, `uuid`, `repeatToken`
+- [x] `dishSnapshot` + increment `orderedPortions`
 
 ## Этап 5 — платёж (API)
 
 - [x] `PaymentService` + `POST /api/payment/webhook`
-- [ ] Подключить конкретного провайдера (Тinkoff / СБП / ЮKassa — по выбору)
-- [ ] Маппинг payload провайдера → наш webhook
-- [ ] `NotificationService` при переходе в `paid`
+- [x] Адаптеры Sber / YooKassa → `POST /api/payment/{provider}/webhook`
+- [x] `NotificationService` при переходе в `paid` (лог; TG/VK — этап 7)
+- [ ] Подключить конкретного провайдера в production (ключи, QR, metadata)
 
 ## Этап 6 — боты
 

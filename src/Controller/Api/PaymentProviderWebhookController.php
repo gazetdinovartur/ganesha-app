@@ -8,9 +8,11 @@ use App\Service\Payment\PaymentWebhookProcessor;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-final class PaymentWebhookController extends AbstractController
+#[Route('/api/payment')]
+final class PaymentProviderWebhookController extends AbstractController
 {
     public function __construct(
         private readonly PaymentWebhookProcessor $paymentWebhookProcessor,
@@ -18,11 +20,11 @@ final class PaymentWebhookController extends AbstractController
     ) {
     }
 
-    #[Route('/api/payment/webhook', name: 'api_payment_webhook', methods: ['POST'])]
-    public function __invoke(Request $request): JsonResponse
+    #[Route('/{provider}/webhook', name: 'api_payment_provider_webhook', methods: ['POST'])]
+    public function __invoke(string $provider, Request $request): JsonResponse
     {
         try {
-            $order = $this->paymentWebhookProcessor->process('generic', $request);
+            $order = $this->paymentWebhookProcessor->process($provider, $request);
         } catch (PaymentConfirmationException $e) {
             return $this->json(
                 ['error' => $e->getErrorCode(), 'message' => $e->getMessage()],

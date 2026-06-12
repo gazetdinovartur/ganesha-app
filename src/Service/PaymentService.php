@@ -13,6 +13,7 @@ final class PaymentService
     public function __construct(
         private readonly OrderRepository $orderRepository,
         private readonly OrderStatusService $orderStatusService,
+        private readonly NotificationService $notificationService,
     ) {
     }
 
@@ -26,6 +27,7 @@ final class PaymentService
     public function confirmPayment(
         string $orderUuid,
         ?int $amountKopecks = null,
+        ?string $externalId = null,
     ): Order {
         if (!Uuid::isValid($orderUuid)) {
             throw new PaymentConfirmationException('Некорректный order_uuid.', 400, 'invalid_uuid');
@@ -49,6 +51,7 @@ final class PaymentService
         }
 
         $this->orderStatusService->markAsPaid($order);
+        $this->notificationService->orderPaid($order, $externalId);
 
         return $order;
     }

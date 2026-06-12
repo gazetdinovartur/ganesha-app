@@ -17,12 +17,16 @@ Service/
   MenuDayService.php        # неделя меню
   KitchenSummaryService.php # сводка порций
   PaymentService.php        # подтверждение оплаты по API
-  OrderService.php          # (этап 4) создание заказа
-  NotificationService.php   # (этап 7) TG/VK
+  OrderService.php          # создание заказа, cutoff, snapshot
+  OrderCutoffService.php    # правила cutoff и горизонта меню
+  CustomerService.php       # нормализация телефона, find-or-create
+  MenuCatalogService.php    # публичное меню для API
+  NotificationService.php   # уведомления (лог; TG/VK — этап 7)
 Controller/
   Admin/           EasyAdmin + кастомные экраны
-  Api/             PaymentWebhookController
+  Api/             OrderController, MenuController, PaymentWebhookController
   Web/             (этап 3) публичный сайт
+Dto/               CreateOrderDto, CreateOrderItemDto
 Form/Admin/        DishFormType, MenuDayFormType, …
 Command/           app:seed:*
 ```
@@ -65,6 +69,47 @@ Dish ──► MenuDayDish ◄── MenuDay
 
 ---
 
+## Публичное API заказов
+
+### Меню
+
+```
+GET /api/menu
+```
+
+Возвращает опубликованные дни меню на горизонт `ORDER_MENU_HORIZON_DAYS` (по умолчанию 7).
+
+### Создание заказа
+
+```
+POST /api/orders
+Content-Type: application/json
+```
+
+```json
+{
+  "phone": "+79123456789",
+  "name": "Анна",
+  "pickup_date": "2026-06-14",
+  "pickup_point_id": 1,
+  "channel": "web",
+  "comment": "без лука",
+  "items": [
+    { "menu_day_dish_id": 12, "quantity": 2 }
+  ]
+}
+```
+
+Ответ **201** — заказ в статусе `pending_payment` + блок `payment` (QR/реквизиты).
+
+### Статус заказа
+
+```
+GET /api/orders/{uuid}
+```
+
+---
+
 ## Оплата
 
 Подтверждение **только автоматическое** через webhook. Реализация: `PaymentService` + `PaymentWebhookController`.
@@ -76,6 +121,16 @@ POST /api/payment/webhook
 Header: X-Payment-Token: {PAYMENT_WEBHOOK_SECRET}
 Content-Type: application/json
 ```
+
+Провайдеры с адаптерами:
+
+| Провайдер | URL | Авторизация | Назначение |
+|---|---|---|---|
+| **generic** | `/api/payment/webhook` | `X-Payment-Token` | **Наш** нормализованный формат JSON — не СБП. Удобен для тестов, cron-скриптов и прокси «провайдер → наш API». |
+| **sber** | `/api/payment/sber/webhook` | `X-Sber-Webhook-Secret` | Callback Сбербанка (эквайринг / СБП через API Сбера) |
+| **yookassa** | `/api/payment/yookassa/webhook` | `X-Yookassa-Secret` | Webhook ЮKassa (если понадобится) |
+
+**СБП** — способ оплаты (перевод по QR), а не формат webhook. Клиент платит через СБП, а **Сбер** (или другой банк) при успехе шлёт callback на `/api/payment/sber/webhook`; адаптер переводит его в общую логику `PaymentService`.
 
 ### Тело запроса
 
@@ -129,6 +184,10 @@ Content-Type: application/json
 | `PAYMENT_WEBHOOK_SECRET` | секрет для заголовка `X-Payment-Token` |
 | `PAYMENT_QR_URL` | URL QR для страницы оплаты |
 | `PAYMENT_CARD` | реквизиты карты (fallback) |
+| `ORDER_CUTOFF_HOUR` | час cutoff (по умолчанию 18) |
+| `ORDER_MENU_HORIZON_DAYS` | горизонт меню в днях (по умолчанию 7) |
+| `SBER_WEBHOOK_SECRET` | секрет для webhook Сбербанка |
+| `YOOKASSA_WEBHOOK_SECRET` | секрет для webhook YooKassa |
 
 ---
 

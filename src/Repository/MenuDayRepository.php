@@ -27,4 +27,23 @@ class MenuDayRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @return list<MenuDay>
+     */
+    public function findPublishedBetween(\DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return $this->createQueryBuilder('m')
+            ->leftJoin('m.dishes', 'md')->addSelect('md')
+            ->leftJoin('md.dish', 'd')->addSelect('d')
+            ->leftJoin('d.category', 'c')->addSelect('c')
+            ->andWhere('m.date BETWEEN :from AND :to')
+            ->andWhere('m.isPublished = true')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->orderBy('m.date', 'ASC')
+            ->addOrderBy('md.sortOrder', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

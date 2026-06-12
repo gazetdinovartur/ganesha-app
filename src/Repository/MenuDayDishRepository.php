@@ -13,4 +13,16 @@ class MenuDayDishRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, MenuDayDish::class);
     }
+
+    public function findOneForOrdering(int $id): ?MenuDayDish
+    {
+        return $this->createQueryBuilder('md')
+            ->innerJoin('md.menuDay', 'm')->addSelect('m')
+            ->innerJoin('md.dish', 'd')->addSelect('d')
+            ->andWhere('md.id = :id')
+            ->setParameter('id', $id)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }
