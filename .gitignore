@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+
+# IDE
+.idea/
+
+# Symfony
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+
+# PHPUnit
+/phpunit.xml
+/.phpunit.cache/
+/.phpunit.result.cache/
+
+# Legacy asset-mapper (удалён, но vendor мог остаться локально)
+/assets/vendor/
+/public/assets/
+
+# Docker
+/docker/mysql/data/
+
+*.log
