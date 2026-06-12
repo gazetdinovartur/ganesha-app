@@ -5,7 +5,7 @@ namespace App\Service\Notification;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final class VkApiClient
+class VkApiClient
 {
     public function __construct(
         private readonly HttpClientInterface $httpClient,

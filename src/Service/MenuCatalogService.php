@@ -5,7 +5,7 @@ namespace App\Service;
 use App\Repository\MenuDayRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-final class MenuCatalogService
+class MenuCatalogService
 {
     public function __construct(
         private readonly MenuDayRepository $menuDayRepository,

@@ -65,7 +65,15 @@ final class BotOrderFlowService
         $customer = $this->customerService->findByMessenger(BotPlatform::Telegram, $chatId);
 
         if (isset($message['contact']) && \is_array($message['contact'])) {
-            $this->handleTelegramContact($session, $customer, $chatId, $message['contact']);
+            if ($session->getState() === 'await_phone') {
+                $this->handleTelegramContact($session, $customer, $chatId, $message['contact']);
+            } else {
+                $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                    $chatId,
+                    'Сначала оформите заказ через «Оформить» в меню или корзине.',
+                    $this->telegramNavKeyboard(includeCheckout: false),
+                );
+            }
 
             return;
         }
@@ -73,6 +81,8 @@ final class BotOrderFlowService
         $text = trim((string) ($message['text'] ?? ''));
 
         if (str_starts_with($text, '/start')) {
+            $this->botSessionService->reset($session);
+            $this->entityManager->flush();
             $this->sendTelegramWelcome($chatId);
 
             return;
@@ -99,9 +109,31 @@ final class BotOrderFlowService
             return;
         }
 
-        $this->telegramApiClient->sendMessage(
+        if ($session->getState() === 'await_name') {
+            $this->handleTelegramNameText($session, $customer, $chatId, $text);
+
+            return;
+        }
+
+        if ($session->getState() === 'await_comment') {
+            $this->handleTelegramCommentText($session, $customer, $chatId, $text);
+
+            return;
+        }
+
+        if ($session->getState() === 'await_phone') {
+            $this->telegramApiClient->sendMessageWithContactRequest(
+                $chatId,
+                'Нажмите кнопку «📱 Отправить телефон» ниже.',
+            );
+
+            return;
+        }
+
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
             $chatId,
             "Команды:\n/menu — меню\n/cart — корзина\n/repeat {token} — повтор заказа",
+            $this->telegramNavKeyboard(includeCheckout: false),
         );
     }
 
@@ -137,44 +169,263 @@ final class BotOrderFlowService
         }
 
         $session = $this->botSessionService->getOrCreate(BotPlatform::Vk, $userId);
+        $customer = $this->customerService->findByMessenger(BotPlatform::Vk, $userId);
         $text = trim((string) ($message['text'] ?? ''));
 
-        if ($text === 'начать' || str_starts_with($text, '/start') || $text === 'start') {
-            $this->sendVkWelcome((int) $userId);
-        } elseif ($text === 'меню' || $text === '/menu') {
-            $this->sendVkDatePicker((int) $userId);
-        } elseif ($text === 'корзина' || $text === '/cart') {
-            $this->sendVkCartSummary($session, (int) $userId);
-        } elseif (str_starts_with($text, '/repeat ') || str_starts_with($text, 'повтор ')) {
+        if ($text === '') {
+            return 'ok';
+        }
+
+        if ($this->handleVkCommand($session, $customer, (int) $userId, $text)) {
+            return 'ok';
+        }
+
+        if ($this->trySelectVkDate($session, (int) $userId, $text)) {
+            return 'ok';
+        }
+
+        if ($session->getState() === 'await_phone') {
+            $this->handleVkPhone($session, $customer, (int) $userId, $text);
+
+            return 'ok';
+        }
+
+        if ($session->getState() === 'select_dish') {
+            $this->handleVkSelectDishMessage($session, (int) $userId, $text);
+
+            return 'ok';
+        }
+
+        $this->vkApiClient->sendMessage(
+            (int) $userId,
+            "Команды: «меню», «корзина», «оформить», «повтор {token}». Для начала — «начать».\nИли отправьте дату YYYY-MM-DD из списка меню.",
+        );
+
+        return 'ok';
+    }
+
+    private function handleVkCommand(BotSession $session, ?Customer $customer, int $userId, string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        if (in_array($normalized, ['начать', 'start', '/start'], true)) {
+            $this->botSessionService->reset($session);
+            $this->entityManager->flush();
+            $this->sendVkWelcome($userId);
+
+            return true;
+        }
+
+        if (in_array($normalized, ['меню', '/menu'], true)) {
+            $session->setState('start');
+            $this->entityManager->flush();
+            $this->sendVkDatePicker($userId);
+
+            return true;
+        }
+
+        if (in_array($normalized, ['корзина', '/cart'], true)) {
+            $this->sendVkCartSummary($session, $userId);
+
+            return true;
+        }
+
+        if (in_array($normalized, ['оформить', 'оформить заказ', 'checkout', '/checkout'], true)) {
+            $this->startVkCheckout($session, $customer, $userId);
+
+            return true;
+        }
+
+        if (str_starts_with($normalized, '/repeat ') || str_starts_with($normalized, 'повтор ')) {
             $parts = preg_split('/\s+/', $text) ?: [];
             $token = $parts[1] ?? '';
             if ($token !== '') {
-                $this->handleRepeatToken(BotPlatform::Vk, $userId, $token);
+                $this->handleRepeatToken(BotPlatform::Vk, (string) $userId, $token);
             }
-        } else {
-            $this->vkApiClient->sendMessage(
-                (int) $userId,
-                "Команды: «меню», «корзина», «повтор {token}». Для начала — «начать».",
-            );
+
+            return true;
         }
 
-        return 'ok';
+        return false;
+    }
+
+    private function trySelectVkDate(BotSession $session, int $userId, string $text): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $text)) {
+            return false;
+        }
+
+        $pickupDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $text);
+        if ($pickupDate === false) {
+            $this->vkApiClient->sendMessage($userId, 'Некорректная дата. Используйте формат YYYY-MM-DD.');
+
+            return true;
+        }
+
+        $dishes = $this->getDishesForDate($text);
+        if ($dishes === []) {
+            $this->vkApiClient->sendMessage($userId, 'На эту дату меню не опубликовано. Напишите «меню», чтобы увидеть доступные дни.');
+
+            return true;
+        }
+
+        $previousDate = (string) ($session->getPayload()['pickup_date'] ?? '');
+        if ($previousDate !== $text) {
+            $this->botSessionService->setCart($session, []);
+        }
+
+        $session->mergePayload(['pickup_date' => $text])->setState('select_dish');
+        $this->entityManager->flush();
+        $this->sendVkDishes($session, $userId, $text, $dishes);
+
+        return true;
+    }
+
+    private function handleVkSelectDishMessage(BotSession $session, int $userId, string $text): void
+    {
+        if (preg_match('/^\+?\s*(\d+)$/', $text, $matches)) {
+            $this->addVkDishByIndex($session, $userId, (int) $matches[1]);
+
+            return;
+        }
+
+        $this->vkApiClient->sendMessage(
+            $userId,
+            "Отправьте номер блюда (например «1»), «корзина», «оформить» или «меню» для другого дня.",
+        );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $dishes
+     */
+    private function sendVkDishes(BotSession $session, int $userId, string $date, array $dishes): void
+    {
+        $lines = [sprintf('Меню на %s:', $date)];
+        $dishIndex = [];
+
+        foreach ($dishes as $index => $dish) {
+            $number = $index + 1;
+            $dishIndex[$number] = (int) $dish['menu_day_dish_id'];
+            $price = (int) round($dish['price'] / 100);
+            $lines[] = sprintf('%d. %s — %d ₽', $number, $dish['name'], $price);
+        }
+
+        $session->mergePayload(['dish_index' => $dishIndex]);
+        $this->entityManager->flush();
+
+        $lines[] = '';
+        $lines[] = 'Чтобы добавить — отправьте номер (например «1»).';
+        $lines[] = '«корзина» — посмотреть корзину';
+        $lines[] = '«оформить» — оформить заказ';
+
+        $this->vkApiClient->sendMessage($userId, implode("\n", $lines));
+    }
+
+    private function addVkDishByIndex(BotSession $session, int $userId, int $index): void
+    {
+        $dishIndex = $session->getPayload()['dish_index'] ?? [];
+        if (!\is_array($dishIndex) || !isset($dishIndex[$index])) {
+            $this->vkApiClient->sendMessage($userId, 'Нет такого номера. Выберите блюдо из списка или «меню» для другого дня.');
+
+            return;
+        }
+
+        $menuDayDishId = (int) $dishIndex[$index];
+        $cart = $this->botSessionService->getCart($session);
+        $cart[$menuDayDishId] = ($cart[$menuDayDishId] ?? 0) + 1;
+        $this->botSessionService->setCart($session, $cart);
+        $this->entityManager->flush();
+
+        $this->vkApiClient->sendMessage($userId, 'Добавлено в корзину. «корзина» — оформить.');
+    }
+
+    private function startVkCheckout(BotSession $session, ?Customer $customer, int $userId): void
+    {
+        $cart = $this->botSessionService->getCart($session);
+        if ($cart === []) {
+            $this->vkApiClient->sendMessage($userId, 'Корзина пуста. Напишите «меню» и выберите блюда.');
+
+            return;
+        }
+
+        $pickupDateRaw = (string) ($session->getPayload()['pickup_date'] ?? '');
+        if ($pickupDateRaw === '') {
+            $this->vkApiClient->sendMessage($userId, 'Сначала выберите день: «меню», затем дату YYYY-MM-DD.');
+
+            return;
+        }
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Vk, (string) $userId);
+            $this->entityManager->flush();
+        }
+
+        $phone = $customer->getPhone();
+        if (str_starts_with($phone, 'bot:')) {
+            $session->setState('await_phone');
+            $this->entityManager->flush();
+            $this->vkApiClient->sendMessage(
+                $userId,
+                "Для оформления отправьте номер телефона в формате +79123456789 или 89123456789.",
+            );
+
+            return;
+        }
+
+        $this->finalizeOrder($session, $customer, OrderChannel::Vk, BotPlatform::Vk, (string) $userId);
+    }
+
+    private function handleVkPhone(BotSession $session, ?Customer $customer, int $userId, string $text): void
+    {
+        $phone = CustomerService::normalizePhone($text);
+        if ($phone === '') {
+            $this->vkApiClient->sendMessage($userId, 'Не удалось прочитать номер. Отправьте телефон, например +79123456789.');
+
+            return;
+        }
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Vk, (string) $userId);
+        }
+
+        try {
+            $this->customerService->assignPhone($customer, $phone);
+        } catch (OrderCreationException $e) {
+            $this->vkApiClient->sendMessage($userId, $e->getMessage());
+
+            return;
+        }
+
+        $session->setState('select_dish');
+        $this->entityManager->flush();
+        $this->finalizeOrder($session, $customer, OrderChannel::Vk, BotPlatform::Vk, (string) $userId);
     }
 
     private function handleTelegramCallback(array $callback): void
     {
         $chatId = (string) ($callback['message']['chat']['id'] ?? '');
         $data = (string) ($callback['data'] ?? '');
+        $callbackId = (string) ($callback['id'] ?? '');
 
         if ($chatId === '' || $data === '') {
             return;
         }
 
+        $this->telegramApiClient->answerCallbackQuery($callbackId);
+
         $session = $this->botSessionService->getOrCreate(BotPlatform::Telegram, $chatId);
         $customer = $this->customerService->findByMessenger(BotPlatform::Telegram, $chatId);
 
-        if (str_starts_with($data, 'date:')) {
+        if ($data === 'cmd:menu') {
+            $this->sendTelegramDatePicker($chatId);
+        } elseif ($data === 'cmd:cart') {
+            $this->sendTelegramCartSummary($session, $chatId);
+        } elseif (str_starts_with($data, 'date:')) {
             $date = substr($data, 5);
+            $previousDate = (string) ($session->getPayload()['pickup_date'] ?? '');
+            if ($previousDate !== $date) {
+                $this->botSessionService->setCart($session, []);
+            }
             $session->mergePayload(['pickup_date' => $date])->setState('select_dish');
             $this->entityManager->flush();
             $this->sendTelegramDishes($chatId, $date);
@@ -185,9 +436,21 @@ final class BotOrderFlowService
             $cart[$menuDayDishId] = ($cart[$menuDayDishId] ?? 0) + 1;
             $this->botSessionService->setCart($session, $cart);
             $this->entityManager->flush();
-            $this->telegramApiClient->sendMessage($chatId, 'Добавлено в корзину. /cart — оформить.');
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'Добавлено в корзину.',
+                $this->telegramNavKeyboard(),
+            );
         } elseif ($data === 'checkout') {
             $this->startTelegramCheckout($session, $chatId, $customer);
+        } elseif ($data === 'name:use') {
+            $this->proceedTelegramCommentStep($session, $customer, $chatId);
+        } elseif ($data === 'name:new') {
+            $this->promptTelegramNameInput($session, $chatId);
+        } elseif ($data === 'comment:skip') {
+            $session->mergePayload(['order_comment' => null]);
+            $this->entityManager->flush();
+            $this->proceedTelegramPhoneStep($session, $customer, $chatId);
         } elseif (str_starts_with($data, 'repeat:')) {
             $token = substr($data, 7);
             $this->handleRepeatToken(BotPlatform::Telegram, $chatId, $token);
@@ -198,7 +461,10 @@ final class BotOrderFlowService
     {
         $phone = CustomerService::normalizePhone((string) ($contact['phone_number'] ?? ''));
         if ($phone === '') {
-            $this->telegramApiClient->sendMessage($chatId, 'Не удалось прочитать номер. Попробуйте ещё раз.');
+            $this->telegramApiClient->sendMessageWithContactRequest(
+                $chatId,
+                'Не удалось прочитать номер. Нажмите «📱 Отправить телефон» ещё раз.',
+            );
 
             return;
         }
@@ -210,20 +476,64 @@ final class BotOrderFlowService
         try {
             $this->customerService->assignPhone($customer, $phone);
         } catch (OrderCreationException $e) {
-            $this->telegramApiClient->sendMessage($chatId, $e->getMessage());
+            $this->telegramApiClient->removeReplyKeyboard($chatId, $e->getMessage());
 
             return;
         }
 
         $this->entityManager->flush();
+        $this->telegramApiClient->removeReplyKeyboard($chatId);
         $this->finalizeTelegramOrder($session, $chatId, $customer);
+    }
+
+    private function handleTelegramNameText(BotSession $session, ?Customer $customer, string $chatId, string $text): void
+    {
+        $name = trim($text);
+        if ($name === '' || mb_strlen($name) > 120) {
+            $this->telegramApiClient->sendMessage($chatId, 'Введите имя (до 120 символов).');
+
+            return;
+        }
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
+        }
+
+        $customer->setName($name);
+        $this->entityManager->flush();
+        $this->proceedTelegramCommentStep($session, $customer, $chatId);
+    }
+
+    private function handleTelegramCommentText(BotSession $session, ?Customer $customer, string $chatId, string $text): void
+    {
+        $comment = trim($text);
+        if ($comment === '') {
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'Комментарий не может быть пустым. Напишите текст или нажмите «Без комментария».',
+                [[['text' => '⏭ Без комментария', 'callback_data' => 'comment:skip']]],
+            );
+
+            return;
+        }
+
+        $session->mergePayload(['order_comment' => mb_substr($comment, 0, 500)]);
+        $this->entityManager->flush();
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
+            $this->entityManager->flush();
+        }
+
+        $this->proceedTelegramPhoneStep($session, $customer, $chatId);
     }
 
     private function sendTelegramWelcome(string $chatId): void
     {
-        $this->telegramApiClient->sendMessage(
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
             $chatId,
-            "Привет! Это заказ питания в Хануман.\n/menu — выбрать меню",
+            "Привет! Это заказ питания в Хануман.\nВыберите действие:",
+            $this->telegramNavKeyboard(includeCheckout: false),
         );
     }
 
@@ -232,17 +542,22 @@ final class BotOrderFlowService
         $rows = [];
         foreach ($this->menuCatalogService->getPublishedMenu() as $day) {
             $rows[] = [[
-                'text' => $day['date'],
+                'text' => '📅 '.$day['date'],
                 'callback_data' => 'date:'.$day['date'],
             ]];
         }
 
         if ($rows === []) {
-            $this->telegramApiClient->sendMessage($chatId, 'Меню пока не опубликовано.');
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'Меню пока не опубликовано.',
+                [[['text' => '🔄 Обновить', 'callback_data' => 'cmd:menu']]],
+            );
 
             return;
         }
 
+        $rows[] = [['text' => '🛒 Корзина', 'callback_data' => 'cmd:cart']];
         $this->telegramApiClient->sendMessageWithInlineKeyboard($chatId, 'Выберите день самовывоза:', $rows);
     }
 
@@ -263,60 +578,211 @@ final class BotOrderFlowService
             }
         }
 
-        $rows[] = [['text' => 'Оформить', 'callback_data' => 'checkout']];
-        $this->telegramApiClient->sendMessageWithInlineKeyboard($chatId, 'Выберите блюда:', $rows);
+        if ($rows === []) {
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'На этот день блюд нет.',
+                [[['text' => '📋 Меню', 'callback_data' => 'cmd:menu']]],
+            );
+
+            return;
+        }
+
+        $rows = array_merge($rows, $this->telegramNavKeyboard());
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
+            $chatId,
+            sprintf('Выберите блюда на %s:', $date),
+            $rows,
+        );
     }
 
     private function sendTelegramCartSummary(BotSession $session, string $chatId): void
     {
         $cart = $this->botSessionService->getCart($session);
         if ($cart === []) {
-            $this->telegramApiClient->sendMessage($chatId, 'Корзина пуста. /menu');
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'Корзина пуста.',
+                [[['text' => '📋 Меню', 'callback_data' => 'cmd:menu']]],
+            );
 
             return;
         }
 
         $this->telegramApiClient->sendMessageWithInlineKeyboard(
             $chatId,
-            sprintf('В корзине позиций: %d', count($cart)),
-            [[['text' => 'Оформить', 'callback_data' => 'checkout']]],
+            $this->formatTelegramCartText($session, $cart),
+            $this->telegramNavKeyboard(),
         );
     }
 
     private function startTelegramCheckout(BotSession $session, string $chatId, ?Customer $customer): void
     {
-        if ($customer === null) {
-            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
-            $this->entityManager->flush();
-        }
-
-        $phone = $customer->getPhone();
-        if (str_starts_with($phone, 'bot:')) {
-            $this->telegramApiClient->sendMessage(
+        $cart = $this->botSessionService->getCart($session);
+        if ($cart === []) {
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
                 $chatId,
-                'Поделитесь номером телефона кнопкой «Отправить контакт» (в меню вложений Telegram).',
+                'Корзина пуста. Сначала выберите блюда.',
+                [[['text' => '📋 Меню', 'callback_data' => 'cmd:menu']]],
             );
 
             return;
         }
 
-        $this->finalizeTelegramOrder($session, $chatId, $customer);
+        $pickupDateRaw = (string) ($session->getPayload()['pickup_date'] ?? '');
+        if ($pickupDateRaw === '') {
+            $this->telegramApiClient->sendMessageWithInlineKeyboard(
+                $chatId,
+                'Сначала выберите день самовывоза.',
+                [[['text' => '📋 Меню', 'callback_data' => 'cmd:menu']]],
+            );
+
+            return;
+        }
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
+            $this->entityManager->flush();
+        }
+
+        if ($this->hasUsableCustomerName($customer)) {
+            $this->promptTelegramNameConfirm($session, $customer, $chatId);
+
+            return;
+        }
+
+        $this->promptTelegramNameInput($session, $chatId);
     }
 
-    private function finalizeTelegramOrder(BotSession $session, string $chatId, Customer $customer): void
+    private function promptTelegramNameConfirm(BotSession $session, Customer $customer, string $chatId): void
     {
+        $session->setState('await_name');
+        $this->entityManager->flush();
+
+        $name = $customer->getName();
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
+            $chatId,
+            sprintf("Оформление заказа.\nИмя: <b>%s</b>", htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+            [
+                [
+                    ['text' => '✅ Верно', 'callback_data' => 'name:use'],
+                    ['text' => '✏️ Другое', 'callback_data' => 'name:new'],
+                ],
+            ],
+        );
+    }
+
+    private function promptTelegramNameInput(BotSession $session, string $chatId): void
+    {
+        $session->setState('await_name');
+        $this->entityManager->flush();
+
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
+            $chatId,
+            'Как к вам обращаться? Напишите имя сообщением.',
+            [[['text' => '✖️ Отмена', 'callback_data' => 'cmd:cart']]],
+        );
+    }
+
+    private function proceedTelegramCommentStep(BotSession $session, Customer $customer, string $chatId): void
+    {
+        $session->setState('await_comment');
+        $this->entityManager->flush();
+
+        $this->telegramApiClient->sendMessageWithInlineKeyboard(
+            $chatId,
+            'Комментарий к заказу (аллергии, пожелания)? Напишите текст или пропустите.',
+            [[['text' => '⏭ Без комментария', 'callback_data' => 'comment:skip']]],
+        );
+    }
+
+    private function proceedTelegramPhoneStep(BotSession $session, Customer $customer, string $chatId): void
+    {
+        if (!str_starts_with($customer->getPhone(), 'bot:')) {
+            $this->finalizeTelegramOrder($session, $chatId, $customer);
+
+            return;
+        }
+
+        $session->setState('await_phone');
+        $this->entityManager->flush();
+        $this->telegramApiClient->sendMessageWithContactRequest(
+            $chatId,
+            'Отправьте номер телефона кнопкой ниже — он нужен для связи по заказу.',
+        );
+    }
+
+    /**
+     * @param array<int, int> $cart
+     */
+    private function formatTelegramCartText(BotSession $session, array $cart): string
+    {
+        $pickupDate = (string) ($session->getPayload()['pickup_date'] ?? '');
+        $lines = ['🛒 <b>Корзина</b>'.($pickupDate !== '' ? " на {$pickupDate}" : '').':'];
+        $namesById = [];
+
+        if ($pickupDate !== '') {
+            foreach ($this->getDishesForDate($pickupDate) as $dish) {
+                $namesById[(int) $dish['menu_day_dish_id']] = (string) $dish['name'];
+            }
+        }
+
+        foreach ($cart as $menuDayDishId => $quantity) {
+            $name = htmlspecialchars(
+                $namesById[$menuDayDishId] ?? 'Блюдо #'.$menuDayDishId,
+                ENT_QUOTES | ENT_SUBSTITUTE,
+                'UTF-8',
+            );
+            $lines[] = sprintf('• %s × %d', $name, $quantity);
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<list<array{text: string, callback_data: string}>>
+     */
+    private function telegramNavKeyboard(bool $includeCheckout = true): array
+    {
+        $row = [
+            ['text' => '📋 Меню', 'callback_data' => 'cmd:menu'],
+            ['text' => '🛒 Корзина', 'callback_data' => 'cmd:cart'],
+        ];
+
+        if ($includeCheckout) {
+            $row[] = ['text' => '✅ Оформить', 'callback_data' => 'checkout'];
+        }
+
+        return [$row];
+    }
+
+    private function hasUsableCustomerName(Customer $customer): bool
+    {
+        $name = trim($customer->getName());
+
+        return $name !== '' && $name !== 'Гость';
+    }
+
+    private function finalizeOrder(
+        BotSession $session,
+        Customer $customer,
+        OrderChannel $channel,
+        BotPlatform $platform,
+        string $externalUserId,
+    ): void {
         try {
-            $order = $this->createOrderFromSession($session, $customer, OrderChannel::Telegram);
+            $order = $this->createOrderFromSession($session, $customer, $channel);
         } catch (OrderCreationException $e) {
-            $this->telegramApiClient->sendMessage($chatId, $e->getMessage());
+            $this->sendPlatformMessage($platform, $externalUserId, $e->getMessage());
 
             return;
         }
 
         $presented = $this->orderApiPresenter->present($order, includePayment: true);
         $payment = $presented['payment'] ?? [];
-        $this->telegramApiClient->sendMessage(
-            $chatId,
+        $this->sendPlatformMessage(
+            $platform,
+            $externalUserId,
             sprintf(
                 "Заказ #%d создан.\nСумма: %d ₽\nКомментарий к переводу: %s\n%s",
                 $order->getHumanNumber(),
@@ -328,22 +794,37 @@ final class BotOrderFlowService
 
         $repeatUrl = $this->repeatUrl($order->getRepeatToken());
         if ($repeatUrl !== '') {
-            $this->telegramApiClient->sendMessage($chatId, "Повторить позже: {$repeatUrl}");
+            $this->sendPlatformMessage($platform, $externalUserId, "Повторить позже: {$repeatUrl}");
         }
 
         $this->botSessionService->reset($session);
         $this->entityManager->flush();
     }
 
+    private function finalizeTelegramOrder(BotSession $session, string $chatId, Customer $customer): void
+    {
+        $this->finalizeOrder($session, $customer, OrderChannel::Telegram, BotPlatform::Telegram, $chatId);
+    }
+
     private function sendVkWelcome(int $userId): void
     {
-        $this->vkApiClient->sendMessage($userId, "Привет! Напишите «меню», чтобы выбрать день.");
+        $this->vkApiClient->sendMessage(
+            $userId,
+            "Привет! Это заказ питания в Хануман.\n«меню» — выбрать день и блюда",
+        );
     }
 
     private function sendVkDatePicker(int $userId): void
     {
-        $lines = ["Дни меню (ответьте датой YYYY-MM-DD):"];
-        foreach ($this->menuCatalogService->getPublishedMenu() as $day) {
+        $menu = $this->menuCatalogService->getPublishedMenu();
+        if ($menu === []) {
+            $this->vkApiClient->sendMessage($userId, 'Меню пока не опубликовано.');
+
+            return;
+        }
+
+        $lines = ['Дни меню — отправьте дату в формате YYYY-MM-DD:'];
+        foreach ($menu as $day) {
             $lines[] = '- '.$day['date'];
         }
 
@@ -353,10 +834,45 @@ final class BotOrderFlowService
     private function sendVkCartSummary(BotSession $session, int $userId): void
     {
         $cart = $this->botSessionService->getCart($session);
-        $this->vkApiClient->sendMessage(
-            $userId,
-            $cart === [] ? 'Корзина пуста.' : 'В корзине позиций: '.count($cart),
-        );
+        if ($cart === []) {
+            $this->vkApiClient->sendMessage($userId, 'Корзина пуста. Напишите «меню».');
+
+            return;
+        }
+
+        $pickupDate = (string) ($session->getPayload()['pickup_date'] ?? '');
+        $lines = ['Корзина'.($pickupDate !== '' ? " на {$pickupDate}" : '').':'];
+        $namesById = [];
+
+        if ($pickupDate !== '') {
+            foreach ($this->getDishesForDate($pickupDate) as $dish) {
+                $namesById[(int) $dish['menu_day_dish_id']] = (string) $dish['name'];
+            }
+        }
+
+        foreach ($cart as $menuDayDishId => $quantity) {
+            $name = $namesById[$menuDayDishId] ?? 'Блюдо #'.$menuDayDishId;
+            $lines[] = sprintf('- %s × %d', $name, $quantity);
+        }
+
+        $lines[] = '';
+        $lines[] = '«оформить» — оформить заказ';
+
+        $this->vkApiClient->sendMessage($userId, implode("\n", $lines));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function getDishesForDate(string $date): array
+    {
+        foreach ($this->menuCatalogService->getPublishedMenu() as $day) {
+            if ($day['date'] === $date) {
+                return $day['dishes'];
+            }
+        }
+
+        return [];
     }
 
     private function handleRepeatToken(BotPlatform $platform, string $externalUserId, string $token): void
@@ -395,8 +911,11 @@ final class BotOrderFlowService
         $pickupDateRaw = (string) ($payload['pickup_date'] ?? '');
         $pickupDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $pickupDateRaw);
         if ($pickupDate === false) {
-            throw new OrderCreationException('Сначала выберите день (/menu).', 422, 'pickup_date_required');
+            throw new OrderCreationException('Сначала выберите день (меню).', 422, 'pickup_date_required');
         }
+
+        $commentRaw = $payload['order_comment'] ?? null;
+        $comment = \is_string($commentRaw) && trim($commentRaw) !== '' ? trim($commentRaw) : null;
 
         $items = [];
         foreach ($this->botSessionService->getCart($session) as $menuDayDishId => $quantity) {
@@ -409,6 +928,7 @@ final class BotOrderFlowService
             items: $items,
             name: $customer->getName(),
             channel: $channel,
+            comment: $comment,
         ));
     }
 

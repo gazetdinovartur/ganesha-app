@@ -10,7 +10,7 @@ use App\Service\Notification\VkApiClient;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-final class NotificationService
+class NotificationService
 {
     public function __construct(
         private readonly LoggerInterface $logger,

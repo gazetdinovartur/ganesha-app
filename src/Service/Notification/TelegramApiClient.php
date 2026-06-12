@@ -5,7 +5,7 @@ namespace App\Service\Notification;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final class TelegramApiClient
+class TelegramApiClient
 {
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -45,6 +45,51 @@ final class TelegramApiClient
         $this->sendMessage($chatId, $text, [
             'reply_markup' => json_encode(['inline_keyboard' => $inlineKeyboard], JSON_THROW_ON_ERROR),
         ]);
+    }
+
+    public function sendMessageWithContactRequest(string $chatId, string $text): void
+    {
+        $this->sendMessage($chatId, $text, [
+            'reply_markup' => json_encode([
+                'keyboard' => [[[
+                    'text' => '📱 Отправить телефон',
+                    'request_contact' => true,
+                ]]],
+                'one_time_keyboard' => true,
+                'resize_keyboard' => true,
+            ], JSON_THROW_ON_ERROR),
+        ]);
+    }
+
+    public function removeReplyKeyboard(string $chatId, string $text = ''): void
+    {
+        if ($text === '') {
+            $this->request('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => ' ',
+                'reply_markup' => json_encode(['remove_keyboard' => true], JSON_THROW_ON_ERROR),
+            ]);
+
+            return;
+        }
+
+        $this->sendMessage($chatId, $text, [
+            'reply_markup' => json_encode(['remove_keyboard' => true], JSON_THROW_ON_ERROR),
+        ]);
+    }
+
+    public function answerCallbackQuery(string $callbackQueryId, ?string $text = null): void
+    {
+        if (!$this->isConfigured() || $callbackQueryId === '') {
+            return;
+        }
+
+        $payload = ['callback_query_id' => $callbackQueryId];
+        if ($text !== null && $text !== '') {
+            $payload['text'] = $text;
+        }
+
+        $this->request('answerCallbackQuery', $payload);
     }
 
     /**

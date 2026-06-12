@@ -8,7 +8,7 @@ use App\Exception\OrderCreationException;
 use App\Repository\CustomerRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
-final class CustomerService
+class CustomerService
 {
     public function __construct(
         private readonly CustomerRepository $customerRepository,

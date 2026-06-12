@@ -16,7 +16,7 @@ use App\Repository\OrderRepository;
 use App\Repository\PickupPointRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
-final class OrderService
+class OrderService
 {
     public function __construct(
         private readonly OrderRepository $orderRepository,

@@ -9,7 +9,7 @@ use App\Entity\Order;
 use App\Exception\OrderCreationException;
 use App\Repository\OrderRepository;
 
-final class OrderRepeatService
+class OrderRepeatService
 {
     public function __construct(
         private readonly OrderRepository $orderRepository,
