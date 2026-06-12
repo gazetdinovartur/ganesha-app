@@ -13,4 +13,18 @@ class MenuDayRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, MenuDay::class);
     }
+
+    /**
+     * @return list<MenuDay>
+     */
+    public function findBetween(\DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return $this->createQueryBuilder('m')
+            ->andWhere('m.date BETWEEN :from AND :to')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->orderBy('m.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

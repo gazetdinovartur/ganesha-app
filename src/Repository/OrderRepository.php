@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Order;
+use App\Enum\OrderStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -22,5 +23,44 @@ class OrderRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return ((int) $result) + 1;
+    }
+
+    /**
+     * @return list<Order>
+     */
+    public function findByPickupDate(\DateTimeImmutable $date): array
+    {
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.customer', 'c')->addSelect('c')
+            ->leftJoin('o.items', 'i')->addSelect('i')
+            ->andWhere('o.pickupDate = :date')
+            ->setParameter('date', $date)
+            ->orderBy('o.humanNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getPortionSummaryForDate(\DateTimeImmutable $date, ?OrderStatus $status = null): array
+    {
+        $summary = [];
+
+        foreach ($this->findByPickupDate($date) as $order) {
+            if ($status !== null && $order->getStatus() !== $status) {
+                continue;
+            }
+
+            foreach ($order->getItems() as $item) {
+                $snapshot = $item->getDishSnapshot();
+                $name = (string) ($snapshot['name'] ?? 'Блюдо');
+                $summary[$name] = ($summary[$name] ?? 0) + $item->getQuantity();
+            }
+        }
+
+        ksort($summary);
+
+        return $summary;
     }
 }

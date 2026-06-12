@@ -1,0 +1,18 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Главная{% endblock %}
+
+{% block main %}
+    <p class="text-muted">Предзаказное питание · админ-панель</p>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{{ path('admin_menu_week') }}" class="btn btn-outline-primary w-100 py-3">Меню недели</a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ path('admin_kitchen') }}" class="btn btn-outline-primary w-100 py-3">Кухня сегодня</a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ ordersUrl }}" class="btn btn-outline-secondary w-100 py-3">Заказы</a>
+        </div>
+    </div>
+{% endblock %}

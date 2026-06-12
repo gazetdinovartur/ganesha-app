@@ -166,13 +166,66 @@ src/
 
 | Задача | Где |
 |---|---|
-| Блюда (CRUD + composition) | EasyAdmin |
-| Заказы, смена статуса | EasyAdmin |
-| Клиенты (просмотр) | EasyAdmin |
-| День меню + блюда дня | `/admin/menu-day/{id}` |
-| Кухня + batch-статусы | `/admin/kitchen/{date}` |
-| Точки выдачи | EasyAdmin |
-| Авторизация | один admin-пользователь (Symfony Security) |
+| Блюда (CRUD + composition) | EasyAdmin → «Блюда» |
+| Заказы, подтверждение оплаты | EasyAdmin → «Заказы» |
+| Клиенты (просмотр) | EasyAdmin → «Клиенты» |
+| Календарь меню (7 дней) | `/admin/menu-week` |
+| День меню + блюда дня | `/admin/menu-day/{id}/edit` |
+| Кухня + batch-статусы | `/admin/kitchen?date=YYYY-MM-DD` |
+| Точки выдачи | EasyAdmin → «Точки выдачи» |
+| Авторизация | `/admin/login` (Symfony Security, один admin) |
+
+---
+
+## Этап 2: админка ✓
+
+Реализовано: EasyAdmin 5, кастомные экраны меню и кухни, seed-команды.
+
+### Seed-команды
+
+| Команда | Что делает |
+|---|---|
+| `app:seed:admin` | Admin из `ADMIN_EMAIL` / `ADMIN_PASSWORD` в `.env.local` (создаёт или обновляет пароль) |
+| `app:seed:pickup-point` | Точка «Хануман» (Щорса 37А), если ещё нет |
+| `app:seed` | Обе команды подряд |
+
+Перед `app:seed:admin` задай в `.env.local` реальные `ADMIN_EMAIL` и `ADMIN_PASSWORD` (не `change_me`).
+
+### Маршруты админки
+
+| URL | Назначение |
+|---|---|
+| `/admin/login` | Вход |
+| `/admin` | Главная (быстрые ссылки) |
+| `/admin/menu-week` | Неделя меню: 7 дней, навигация ← → |
+| `/admin/menu-day/{id}/edit` | Редактирование дня: публикация, блюда, цены дня |
+| `/admin/kitchen` | Кухня: сводка порций, batch-статусы заказов |
+| `/admin?crudAction=index&crudControllerFqcn=…` | CRUD через EasyAdmin (блюда, заказы, клиенты…) |
+
+### Рабочий процесс: меню
+
+1. **Блюда** — справочник в EasyAdmin (название, цена, состав через форму, не JSON).
+2. **Меню недели** — открыть `/admin/menu-week`; система создаёт пустые `MenuDay` на 7 дней от выбранной даты.
+3. **Редактирование дня** — кнопка «Редактировать»: добавить блюда, переопределить цену дня, включить `isPublished`.
+4. Клиентский сайт (этап 3) покажет только опубликованные дни.
+
+### Рабочий процесс: кухня
+
+Экран `/admin/kitchen?date=2026-06-13`:
+
+- **Сводка порций** — по всем заказам дня и отдельно по оплаченным (`paid`).
+- **Выборочные действия** — чекбоксы + кнопки: подтвердить оплату, → ready, → completed, отменить.
+- **Массовые** — «Все paid → ready за день», «Все ready → completed за день».
+
+Подтверждение оплаты также доступно в карточке заказа (EasyAdmin → «Подтвердить оплату»).
+
+### Сервисы этапа 2
+
+| Класс | Назначение |
+|---|---|
+| `OrderStatusService` | Смена статуса, `paidAt`, batch по id и по дате |
+| `MenuDayService` | Создание/получение 7 дней меню от даты |
+| `KitchenSummaryService` | Заказы дня и сводка порций |
 
 ---
 
@@ -192,8 +245,10 @@ cp .env.example .env.local
 docker compose -f docker-compose.yml up -d --build
 docker compose -f docker-compose.yml exec php composer install
 docker compose -f docker-compose.yml exec php bin/console doctrine:migrations:migrate --no-interaction
-docker compose -f docker-compose.yml exec php bin/console app:seed:admin   # после реализации команды
+docker compose -f docker-compose.yml exec php bin/console app:seed
 ```
+
+`app:seed` создаёт admin-пользователя и точку выдачи «Хануман» (идемпотентно — можно запускать повторно).
 
 Приложение: http://localhost:8080  
 Admin: http://localhost:8080/admin  
@@ -205,6 +260,9 @@ Mailpit (если включён): http://localhost:8025
 docker compose -f docker-compose.yml exec php bin/console cache:clear
 docker compose -f docker-compose.yml exec php bin/console doctrine:migrations:diff
 docker compose -f docker-compose.yml exec php bin/console doctrine:migrations:migrate
+docker compose -f docker-compose.yml exec php bin/console app:seed              # admin + Хануман
+docker compose -f docker-compose.yml exec php bin/console app:seed:admin        # только admin
+docker compose -f docker-compose.yml exec php bin/console app:seed:pickup-point # только точка выдачи
 docker compose -f docker-compose.yml logs -f php
 ```
 
@@ -279,14 +337,16 @@ URL: `/order/repeat/{repeatToken}`
 
 ## Дорожная карта
 
-| Этап | Содержание |
-|---|---|
-| **0** ✓ | README, Docker, сущности, миграция, deploy-script |
-| **1** | Web: календарь, корзина, оплата, статус, «О нас» |
-| **2** | Admin: EasyAdmin + menu-day + kitchen batch |
-| **3** | TG + VK боты |
-| **4** | Повтор заказа, уведомления |
-| **5** | Автоподтверждение оплаты (банк/webhook) |
+| Этап | Содержание | Статус |
+|---|---|---|
+| **0** | README, Docker, сущности, миграция, deploy-script | ✓ |
+| **1** | Seed: admin + точка выдачи Хануман | ✓ |
+| **2** | Admin: EasyAdmin + menu-week + menu-day + kitchen batch | ✓ |
+| **3** | Web: календарь, корзина, оплата, статус, «О нас» | |
+| **4** | OrderService, payment flow | |
+| **5** | TG + VK боты | |
+| **6** | Повтор заказа, уведомления | |
+| **7** | Автоподтверждение оплаты (банк/webhook), полировка | |
 
 ---
 

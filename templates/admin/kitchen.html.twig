@@ -1,0 +1,93 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Кухня · {{ date.format('d.m.Y') }}{% endblock %}
+
+{% block main %}
+    <form method="get" class="row g-2 align-items-end mb-4">
+        <div class="col-auto">
+            <label class="form-label" for="date">Дата</label>
+            <input type="date" class="form-control" id="date" name="date" value="{{ date.format('Y-m-d') }}">
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-secondary" type="submit">Показать</button>
+        </div>
+    </form>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2 class="h6">Сводка (все заказы)</h2>
+            {% if summaryAll %}
+                <ul class="list-group list-group-flush">
+                    {% for name, qty in summaryAll %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ name }}</span><strong>{{ qty }}</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">Нет заказов.</p>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <h2 class="h6">Сводка (оплаченные)</h2>
+            {% if summaryPaid %}
+                <ul class="list-group list-group-flush">
+                    {% for name, qty in summaryPaid %}
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ name }}</span><strong>{{ qty }}</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">Нет оплаченных.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('kitchen_batch') }}">
+        <input type="hidden" name="date" value="{{ date.format('Y-m-d') }}">
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button name="batch_action" value="confirm_payment" class="btn btn-sm btn-success" type="submit">Подтвердить оплату · выбранные</button>
+            <button name="batch_action" value="to_ready" class="btn btn-sm btn-primary" type="submit">→ Готов · выбранные</button>
+            <button name="batch_action" value="to_completed" class="btn btn-sm btn-secondary" type="submit">→ Выполнен · выбранные</button>
+            <button name="batch_action" value="to_cancelled" class="btn btn-sm btn-outline-danger" type="submit">Отменить · выбранные</button>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button name="batch_action" value="all_paid_to_ready" class="btn btn-sm btn-warning" type="submit">Все paid → ready за день</button>
+            <button name="batch_action" value="all_ready_to_completed" class="btn btn-sm btn-outline-warning" type="submit">Все ready → completed за день</button>
+        </div>
+
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+            <tr>
+                <th><input type="checkbox" id="check-all"></th>
+                <th>№</th>
+                <th>Клиент</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for order in orders %}
+                <tr>
+                    <td><input type="checkbox" name="order_ids[]" value="{{ order.id }}" class="order-check"></td>
+                    <td>#{{ order.humanNumber }}</td>
+                    <td>{{ order.customer.name }}<br><small class="text-muted">{{ order.customer.phone }}</small></td>
+                    <td>{{ (order.totalAmount / 100)|number_format(2, ',', ' ') }} ₽</td>
+                    <td>{{ order.status.label }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="text-muted">Заказов на этот день нет.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </form>
+
+    <script>
+        document.getElementById('check-all')?.addEventListener('change', function (e) {
+            document.querySelectorAll('.order-check').forEach(cb => cb.checked = e.target.checked);
+        });
+    </script>
+{% endblock %}
