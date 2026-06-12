@@ -1,14 +1,21 @@
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .idea/
+*.iml
+.vscode/
+*.swp
+*~
 
-# Symfony
+# Symfony — секреты
 /.env.local
 /.env.local.php
 /.env.*.local
 /config/secrets/prod/prod.decrypt.private.php
+
+# Symfony — генерируемое
 /public/bundles/
 /var/
 /vendor/
@@ -18,11 +25,13 @@
 /.phpunit.cache/
 /.phpunit.result.cache/
 
-# Legacy asset-mapper (удалён, но vendor мог остаться локально)
+# Legacy asset-mapper
 /assets/vendor/
 /public/assets/
 
 # Docker
 /docker/mysql/data/
 
+# Прочее
 *.log
+/composer.phar

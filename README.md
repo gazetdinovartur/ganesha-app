@@ -2,7 +2,7 @@
 
 Система приёма заказов на регулярное вегетарианское питание с самовывозом в центре йоги «Хануман» (Екатеринбург).
 
-Код приложения: [`ganesha-app/`](ganesha-app/). Бизнес-документы: `бизнес-план-соцконтракт.md`, `я.txt`.
+Бизнес-документы: [`docs/бизнес-план-соцконтракт.md`](docs/бизнес-план-соцконтракт.md), [`docs/я.txt`](docs/я.txt).
 
 ---
 
@@ -138,7 +138,7 @@ Dish ──► MenuDayDish ◄── MenuDay
 ## Архитектура кода
 
 ```
-ganesha-app/src/
+src/
   Entity/
   Enum/
   Repository/
@@ -186,7 +186,6 @@ ganesha-app/src/
 ### Первый запуск
 
 ```bash
-cd ganesha-app
 cp .env.example .env.local
 # отредактируй .env.local при необходимости
 
@@ -216,14 +215,14 @@ docker compose -f docker-compose.yml logs -f php
 Скрипт: [`deploy.sh`](deploy.sh) в корне репозитория.
 
 ```bash
-./deploy.sh production
+./deploy.sh
 ```
 
 Перед первым деплоем на сервере:
 
 1. PHP 8.5+, Composer, MySQL 8
-2. Клон репозитория, `ganesha-app/.env.local` с секретами (не коммитить)
-3. Nginx → `ganesha-app/public/index.php`
+2. Клон репозитория, `.env.local` с секретами (не коммитить)
+3. Nginx → `public/index.php`
 4. Cron (опционально): `0 21 * * * php .../bin/console app:orders:complete-pickup-day`
 
 ### Переменные окружения (production)
