@@ -24,6 +24,7 @@ final class OrderService
         private readonly CustomerService $customerService,
         private readonly OrderCutoffService $orderCutoffService,
         private readonly EntityManagerInterface $entityManager,
+        private readonly NotificationService $notificationService,
     ) {
     }
 
@@ -41,7 +42,31 @@ final class OrderService
         $menuDayDishes = $this->resolveMenuDayDishes($mergedItems, $pickupDate);
 
         return $this->entityManager->wrapInTransaction(function () use ($dto, $pickupDate, $pickupPoint, $mergedItems, $menuDayDishes): Order {
-            $customer = $this->customerService->findOrCreate($dto->phone, $dto->name);
+            if (!$dto->personalDataConsent && $dto->channel === OrderChannel::Web) {
+                throw new OrderCreationException(
+                    'Необходимо согласие на обработку персональных данных.',
+                    422,
+                    'consent_required',
+                );
+            }
+
+            if ($dto->channel !== OrderChannel::Web && !$dto->personalDataConsent) {
+                throw new OrderCreationException(
+                    'Необходимо согласие на обработку персональных данных.',
+                    422,
+                    'consent_required',
+                );
+            }
+
+            $customer = $this->customerService->findOrCreate(
+                $dto->phone,
+                $dto->name,
+                requireConsent: false,
+            );
+
+            if (!$customer->hasPersonalDataConsent()) {
+                $this->customerService->grantConsent($customer);
+            }
 
             $order = (new Order())
                 ->setHumanNumber($this->orderRepository->getNextHumanNumber())
@@ -75,6 +100,8 @@ final class OrderService
             $order->recalculateTotal();
             $this->entityManager->persist($order);
             $this->entityManager->flush();
+
+            $this->notificationService->newOrderForAdmin($order);
 
             return $order;
         });

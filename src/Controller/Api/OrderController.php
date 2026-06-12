@@ -108,6 +108,7 @@ final class OrderController extends AbstractController
             pickupPointId: $pickupPointId,
             channel: $channel,
             comment: isset($payload['comment']) ? (string) $payload['comment'] : null,
+            personalDataConsent: filter_var($payload['personal_data_consent'] ?? false, FILTER_VALIDATE_BOOL),
         );
     }
 }

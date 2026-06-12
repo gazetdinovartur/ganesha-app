@@ -18,4 +18,14 @@ class CustomerRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['phone' => $phone]);
     }
+
+    public function findOneByTelegramId(string $telegramId): ?Customer
+    {
+        return $this->findOneBy(['telegramId' => $telegramId]);
+    }
+
+    public function findOneByVkId(string $vkId): ?Customer
+    {
+        return $this->findOneBy(['vkId' => $vkId]);
+    }
 }

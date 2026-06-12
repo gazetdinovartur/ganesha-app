@@ -12,6 +12,8 @@ final class OrderApiPresenter
         private readonly string $paymentQrUrl,
         #[Autowire(param: 'app.payment_card')]
         private readonly string $paymentCard,
+        #[Autowire(param: 'app.public_base_url')]
+        private readonly string $publicBaseUrl,
     ) {
     }
 
@@ -48,6 +50,8 @@ final class OrderApiPresenter
             'comment' => $order->getComment(),
             'created_at' => $order->getCreatedAt()->format(\DateTimeInterface::ATOM),
             'paid_at' => $order->getPaidAt()?->format(\DateTimeInterface::ATOM),
+            'repeat_token' => $order->getRepeatToken(),
+            'repeat_url' => $this->repeatUrl($order->getRepeatToken()),
             'items' => $items,
         ];
 
@@ -60,6 +64,15 @@ final class OrderApiPresenter
         }
 
         return $data;
+    }
+
+    private function repeatUrl(string $repeatToken): string
+    {
+        if ($this->publicBaseUrl === '') {
+            return '/order/repeat/'.$repeatToken;
+        }
+
+        return rtrim($this->publicBaseUrl, '/').'/order/repeat/'.$repeatToken;
     }
 
     /**

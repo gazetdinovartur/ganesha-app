@@ -10,6 +10,7 @@ Thumbs.db
 *~
 
 # Symfony — секреты
+/.env
 /.env.local
 /.env.local.php
 /.env.*.local

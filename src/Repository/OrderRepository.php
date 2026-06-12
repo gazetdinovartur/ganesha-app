@@ -35,6 +35,16 @@ class OrderRepository extends ServiceEntityRepository
         return $this->findOneBy(['uuid' => Uuid::fromString($uuid)]);
     }
 
+    public function findOneByRepeatToken(string $repeatToken): ?Order
+    {
+        $repeatToken = trim($repeatToken);
+        if ($repeatToken === '') {
+            return null;
+        }
+
+        return $this->findOneBy(['repeatToken' => $repeatToken]);
+    }
+
     /**
      * @return list<Order>
      */

@@ -16,6 +16,7 @@
 | [**Backend**](docs/backend.md) | Архитектура, модель данных, **API оплаты** |
 | [**Админка**](docs/admin.md) | EasyAdmin, меню, кухня, seed |
 | [**Deploy**](docs/deploy.md) | Docker, первый запуск, production |
+| [**Разработка**](docs/development.md) | **Онбординг: API, боты, тесты, curl** |
 
 ---
 
@@ -32,15 +33,21 @@ docker compose -f docker-compose.yml exec php bin/console app:seed
 - Приложение: http://localhost:8080  
 - Админка: http://localhost:8080/admin  
 
-Подробнее: [docs/deploy.md](docs/deploy.md).
+Подробнее: [docs/deploy.md](docs/deploy.md) · [docs/development.md](docs/development.md) (тестирование API и ботов).
 
 ---
+
+## Тесты
+
+```bash
+docker compose -f docker-compose.yml exec php vendor/bin/phpunit
+```
 
 ## Ключевые решения
 
 - **Оплата:** автоматически через webhook/API провайдера → `paid`.
 - **Cutoff:** 18:00 дня D−1 для заказа на день D (`Asia/Yekaterinburg`).
-- **Каналы MVP:** сайт + TG + VK (боты — этап 6).
+- **Каналы MVP:** сайт + TG + VK (боты реализованы, см. [development.md](docs/development.md)).
 
 ---
 

@@ -10,8 +10,8 @@
 | **3** | Web: календарь, корзина, QR/оплата, статус заказа, «О нас» | |
 | **4** | `OrderService`: создание заказа, cutoff, snapshot блюд | ✓ |
 | **5** | Интеграция платёжного провайдера → webhook (см. [backend.md](backend.md#оплата)) | частично ✓ |
-| **6** | TG + VK боты (дублируют web-flow) | |
-| **7** | Повтор заказа (`repeatToken`), уведомления | |
+| **6** | TG + VK боты (дублируют web-flow) | ✓ |
+| **7** | Повтор заказа (`repeatToken`), уведомления | ✓ |
 | **8** | Полировка: cron `complete-pickup-day`, мониторинг | |
 
 ---
@@ -50,14 +50,16 @@
 
 ## Этап 6 — боты
 
-- [ ] Telegram webhook
-- [ ] VK callback API
-- [ ] Общий `CreateOrderDto` → `OrderService`
+- [x] Telegram webhook (`POST /api/bot/telegram/webhook`)
+- [x] VK callback API (`POST /api/bot/vk/callback`)
+- [x] Общий `CreateOrderDto` → `OrderService`
+- [x] Согласие на обработку ПДн перед первым заказом
 
 ## Этап 7 — повтор и уведомления
 
-- [ ] `/order/repeat/{repeatToken}`
-- [ ] Push в TG/VK при `paid`, `ready`
+- [x] `GET/POST /api/orders/repeat/{repeatToken}`
+- [x] Push в TG/VK при `paid`, `ready` (и `completed` для ботов)
+- [x] Уведомление админу в TG при новом заказе
 
 ## Этап 8 — эксплуатация
 

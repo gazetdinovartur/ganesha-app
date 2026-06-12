@@ -17,6 +17,7 @@ final readonly class CreateOrderDto
         public ?int $pickupPointId = null,
         public OrderChannel $channel = OrderChannel::Web,
         public ?string $comment = null,
+        public bool $personalDataConsent = false,
     ) {
     }
 }

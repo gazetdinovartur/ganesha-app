@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Customer;
+use App\Enum\BotPlatform;
 use App\Exception\OrderCreationException;
 use App\Repository\CustomerRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,7 +16,7 @@ final class CustomerService
     ) {
     }
 
-    public function findOrCreate(string $phone, string $name = ''): Customer
+    public function findOrCreate(string $phone, string $name = '', bool $requireConsent = true): Customer
     {
         $normalizedPhone = self::normalizePhone($phone);
         if ($normalizedPhone === '') {
@@ -29,7 +30,23 @@ final class CustomerService
                 $customer->setName($trimmedName);
             }
 
+            if ($requireConsent && !$customer->hasPersonalDataConsent()) {
+                throw new OrderCreationException(
+                    'Необходимо согласие на обработку персональных данных.',
+                    422,
+                    'consent_required',
+                );
+            }
+
             return $customer;
+        }
+
+        if ($requireConsent) {
+            throw new OrderCreationException(
+                'Необходимо согласие на обработку персональных данных.',
+                422,
+                'consent_required',
+            );
         }
 
         $customer = (new Customer())
@@ -39,6 +56,77 @@ final class CustomerService
         $this->entityManager->persist($customer);
 
         return $customer;
+    }
+
+    public function findByMessenger(BotPlatform $platform, string $externalUserId): ?Customer
+    {
+        return match ($platform) {
+            BotPlatform::Telegram => $this->customerRepository->findOneByTelegramId($externalUserId),
+            BotPlatform::Vk => $this->customerRepository->findOneByVkId($externalUserId),
+        };
+    }
+
+    public function linkMessenger(
+        Customer $customer,
+        BotPlatform $platform,
+        string $externalUserId,
+        bool $grantConsent = false,
+    ): Customer {
+        match ($platform) {
+            BotPlatform::Telegram => $customer->setTelegramId($externalUserId),
+            BotPlatform::Vk => $customer->setVkId($externalUserId),
+        };
+
+        if ($grantConsent && !$customer->hasPersonalDataConsent()) {
+            $customer->grantPersonalDataConsent();
+        }
+
+        return $customer;
+    }
+
+    public function assignPhone(Customer $customer, string $phone): Customer
+    {
+        $normalizedPhone = self::normalizePhone($phone);
+        if ($normalizedPhone === '') {
+            throw new OrderCreationException('Укажите номер телефона.', 422, 'phone_required');
+        }
+
+        $existing = $this->customerRepository->findOneByPhone($normalizedPhone);
+        if ($existing !== null && $existing->getId() !== $customer->getId()) {
+            throw new OrderCreationException('Этот телефон уже используется.', 422, 'phone_taken');
+        }
+
+        $customer->setPhone($normalizedPhone);
+
+        return $customer;
+    }
+
+    public function grantConsent(Customer $customer): Customer
+    {
+        if (!$customer->hasPersonalDataConsent()) {
+            $customer->grantPersonalDataConsent();
+        }
+
+        return $customer;
+    }
+
+    public function grantConsentForMessenger(BotPlatform $platform, string $externalUserId): Customer
+    {
+        $customer = $this->findByMessenger($platform, $externalUserId);
+        if ($customer === null) {
+            $customer = (new Customer())
+                ->setPhone(sprintf('bot:%s:%s', $platform->value, $externalUserId))
+                ->setName('Гость')
+                ->grantPersonalDataConsent();
+
+            $this->linkMessenger($customer, $platform, $externalUserId);
+
+            $this->entityManager->persist($customer);
+
+            return $customer;
+        }
+
+        return $this->grantConsent($customer);
     }
 
     public static function normalizePhone(string $phone): string

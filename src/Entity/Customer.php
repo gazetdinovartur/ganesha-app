@@ -30,6 +30,9 @@ class Customer
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $defaultComment = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $personalDataConsentAt = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -106,6 +109,30 @@ class Customer
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function getPersonalDataConsentAt(): ?\DateTimeImmutable
+    {
+        return $this->personalDataConsentAt;
+    }
+
+    public function setPersonalDataConsentAt(?\DateTimeImmutable $personalDataConsentAt): static
+    {
+        $this->personalDataConsentAt = $personalDataConsentAt;
+
+        return $this;
+    }
+
+    public function hasPersonalDataConsent(): bool
+    {
+        return $this->personalDataConsentAt !== null;
+    }
+
+    public function grantPersonalDataConsent(): static
+    {
+        $this->personalDataConsentAt = new \DateTimeImmutable();
+
+        return $this;
     }
 
     public function __toString(): string

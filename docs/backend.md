@@ -21,12 +21,14 @@ Service/
   OrderCutoffService.php    # правила cutoff и горизонта меню
   CustomerService.php       # нормализация телефона, find-or-create
   MenuCatalogService.php    # публичное меню для API
-  NotificationService.php   # уведомления (лог; TG/VK — этап 7)
+  NotificationService.php   # TG/VK push, admin alert
+  Bot/BotOrderFlowService.php
 Controller/
   Admin/           EasyAdmin + кастомные экраны
-  Api/             OrderController, MenuController, PaymentWebhookController
+  Api/             orders, menu, payment, bot webhooks
   Web/             (этап 3) публичный сайт
-Dto/               CreateOrderDto, CreateOrderItemDto
+Dto/               CreateOrderDto, RepeatOrderDto, …
+Entity/BotSession  # состояние диалога TG/VK
 Form/Admin/        DishFormType, MenuDayFormType, …
 Command/           app:seed:*
 ```
@@ -66,6 +68,32 @@ Dish ──► MenuDayDish ◄── MenuDay
   "note": "лёгкий, без острого"
 }
 ```
+
+### Customer
+
+- `personalDataConsentAt` — согласие на обработку ПДн
+
+---
+
+## Согласие на обработку ПДн
+
+| Канал | Как |
+|---|---|
+| API / сайт | `personal_data_consent: true` |
+| Telegram | кнопка «✅ Согласен» |
+| VK | «согласен» |
+
+---
+
+## Повтор заказа
+
+`GET/POST /api/orders/repeat/{repeatToken}` · ссылка `/order/repeat/{token}`
+
+---
+
+## Боты
+
+`POST /api/bot/telegram/webhook` · `POST /api/bot/vk/callback`
 
 ---
 
