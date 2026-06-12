@@ -149,6 +149,12 @@ final class BotOrderFlowService
             return $this->getVkConfirmationCode();
         }
 
+        if ($type === 'message_event') {
+            $this->handleVkMessageEvent($event);
+
+            return 'ok';
+        }
+
         if ($type !== 'message_new') {
             return 'ok';
         }
@@ -196,12 +202,80 @@ final class BotOrderFlowService
             return 'ok';
         }
 
-        $this->vkApiClient->sendMessage(
+        $this->vkApiClient->sendMessageWithInlineKeyboard(
             (int) $userId,
-            "Команды: «меню», «корзина», «оформить», «повтор {token}». Для начала — «начать».\nИли отправьте дату YYYY-MM-DD из списка меню.",
+            "Выберите действие кнопкой ниже или напишите «начать».",
+            $this->vkNavKeyboard(includeCheckout: false),
         );
 
         return 'ok';
+    }
+
+    private function handleVkMessageEvent(array $event): void
+    {
+        $object = $event['object'] ?? [];
+        if (!\is_array($object)) {
+            return;
+        }
+
+        $userId = (int) ($object['user_id'] ?? 0);
+        $peerId = (int) ($object['peer_id'] ?? $userId);
+        $eventId = (string) ($object['event_id'] ?? '');
+        $payloadRaw = (string) ($object['payload'] ?? '');
+
+        if ($userId <= 0 || $eventId === '') {
+            return;
+        }
+
+        $this->vkApiClient->sendMessageEventAnswer($eventId, $userId, $peerId);
+
+        $data = $this->parseVkCallbackPayload($payloadRaw);
+        if ($data === '') {
+            return;
+        }
+
+        $session = $this->botSessionService->getOrCreate(BotPlatform::Vk, (string) $userId);
+        $customer = $this->customerService->findByMessenger(BotPlatform::Vk, (string) $userId);
+        $this->handleVkCallbackData($session, $customer, $userId, $data);
+    }
+
+    private function handleVkCallbackData(BotSession $session, ?Customer $customer, int $userId, string $data): void
+    {
+        if ($data === 'cmd:menu') {
+            $session->setState('start');
+            $this->entityManager->flush();
+            $this->sendVkDatePicker($userId);
+
+            return;
+        }
+
+        if ($data === 'cmd:cart') {
+            $this->sendVkCartSummary($session, $userId);
+
+            return;
+        }
+
+        if ($data === 'checkout') {
+            $this->startVkCheckout($session, $customer, $userId);
+
+            return;
+        }
+
+        if (str_starts_with($data, 'date:')) {
+            $this->selectVkDate($session, $userId, substr($data, 5));
+
+            return;
+        }
+
+        if (str_starts_with($data, 'dish:')) {
+            $this->addVkDishByMenuDayDishId($session, $userId, (int) substr($data, 5));
+
+            return;
+        }
+
+        if (str_starts_with($data, 'dish_idx:')) {
+            $this->addVkDishByIndex($session, $userId, (int) substr($data, 9));
+        }
     }
 
     private function handleVkCommand(BotSession $session, ?Customer $customer, int $userId, string $text): bool
@@ -255,30 +329,43 @@ final class BotOrderFlowService
             return false;
         }
 
-        $pickupDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $text);
-        if ($pickupDate === false) {
-            $this->vkApiClient->sendMessage($userId, 'Некорректная дата. Используйте формат YYYY-MM-DD.');
+        $this->selectVkDate($session, $userId, $text);
 
-            return true;
+        return true;
+    }
+
+    private function selectVkDate(BotSession $session, int $userId, string $date): void
+    {
+        $pickupDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+        if ($pickupDate === false) {
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Некорректная дата.',
+                [[['label' => '📋 Меню', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
+
+            return;
         }
 
-        $dishes = $this->getDishesForDate($text);
+        $dishes = $this->getDishesForDate($date);
         if ($dishes === []) {
-            $this->vkApiClient->sendMessage($userId, 'На эту дату меню не опубликовано. Напишите «меню», чтобы увидеть доступные дни.');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'На эту дату меню не опубликовано.',
+                [[['label' => '📋 Меню', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
 
-            return true;
+            return;
         }
 
         $previousDate = (string) ($session->getPayload()['pickup_date'] ?? '');
-        if ($previousDate !== $text) {
+        if ($previousDate !== $date) {
             $this->botSessionService->setCart($session, []);
         }
 
-        $session->mergePayload(['pickup_date' => $text])->setState('select_dish');
+        $session->mergePayload(['pickup_date' => $date])->setState('select_dish');
         $this->entityManager->flush();
-        $this->sendVkDishes($session, $userId, $text, $dishes);
-
-        return true;
+        $this->sendVkDishes($session, $userId, $date, $dishes);
     }
 
     private function handleVkSelectDishMessage(BotSession $session, int $userId, string $text): void
@@ -289,9 +376,10 @@ final class BotOrderFlowService
             return;
         }
 
-        $this->vkApiClient->sendMessage(
+        $this->vkApiClient->sendMessageWithInlineKeyboard(
             $userId,
-            "Отправьте номер блюда (например «1»), «корзина», «оформить» или «меню» для другого дня.",
+            'Отправьте номер блюда или нажмите кнопку в меню.',
+            $this->vkNavKeyboard(),
         );
     }
 
@@ -302,55 +390,97 @@ final class BotOrderFlowService
     {
         $lines = [sprintf('Меню на %s:', $date)];
         $dishIndex = [];
+        $keyboard = [];
 
         foreach ($dishes as $index => $dish) {
             $number = $index + 1;
             $dishIndex[$number] = (int) $dish['menu_day_dish_id'];
             $price = (int) round($dish['price'] / 100);
             $lines[] = sprintf('%d. %s — %d ₽', $number, $dish['name'], $price);
+
+            if ($number <= 8) {
+                $label = sprintf('%d. %s — %d ₽', $number, $dish['name'], $price);
+                $keyboard[] = [[
+                    'label' => $label,
+                    'payload' => $this->vkCallbackPayload('dish:'.$dish['menu_day_dish_id']),
+                    'color' => 'primary',
+                ]];
+            }
         }
 
         $session->mergePayload(['dish_index' => $dishIndex]);
         $this->entityManager->flush();
 
-        $lines[] = '';
-        $lines[] = 'Чтобы добавить — отправьте номер (например «1»).';
-        $lines[] = '«корзина» — посмотреть корзину';
-        $lines[] = '«оформить» — оформить заказ';
+        if (\count($dishes) > 8) {
+            $lines[] = '';
+            $lines[] = 'Блюда 9+ — отправьте номер текстом.';
+        }
 
-        $this->vkApiClient->sendMessage($userId, implode("\n", $lines));
+        $keyboard = array_merge($keyboard, $this->vkNavKeyboard());
+        $this->vkApiClient->sendMessageWithInlineKeyboard($userId, implode("\n", $lines), $keyboard);
+    }
+
+    private function addVkDishByMenuDayDishId(BotSession $session, int $userId, int $menuDayDishId): void
+    {
+        if ($menuDayDishId <= 0) {
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Не удалось добавить блюдо.',
+                $this->vkNavKeyboard(),
+            );
+
+            return;
+        }
+
+        $cart = $this->botSessionService->getCart($session);
+        $cart[$menuDayDishId] = ($cart[$menuDayDishId] ?? 0) + 1;
+        $this->botSessionService->setCart($session, $cart);
+        $this->entityManager->flush();
+
+        $this->vkApiClient->sendMessageWithInlineKeyboard(
+            $userId,
+            'Добавлено в корзину.',
+            $this->vkNavKeyboard(),
+        );
     }
 
     private function addVkDishByIndex(BotSession $session, int $userId, int $index): void
     {
         $dishIndex = $session->getPayload()['dish_index'] ?? [];
         if (!\is_array($dishIndex) || !isset($dishIndex[$index])) {
-            $this->vkApiClient->sendMessage($userId, 'Нет такого номера. Выберите блюдо из списка или «меню» для другого дня.');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Нет такого номера. Выберите блюдо кнопкой или «Меню».',
+                $this->vkNavKeyboard(),
+            );
 
             return;
         }
 
         $menuDayDishId = (int) $dishIndex[$index];
-        $cart = $this->botSessionService->getCart($session);
-        $cart[$menuDayDishId] = ($cart[$menuDayDishId] ?? 0) + 1;
-        $this->botSessionService->setCart($session, $cart);
-        $this->entityManager->flush();
-
-        $this->vkApiClient->sendMessage($userId, 'Добавлено в корзину. «корзина» — оформить.');
+        $this->addVkDishByMenuDayDishId($session, $userId, $menuDayDishId);
     }
 
     private function startVkCheckout(BotSession $session, ?Customer $customer, int $userId): void
     {
         $cart = $this->botSessionService->getCart($session);
         if ($cart === []) {
-            $this->vkApiClient->sendMessage($userId, 'Корзина пуста. Напишите «меню» и выберите блюда.');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Корзина пуста. Сначала выберите блюда.',
+                [[['label' => '📋 Меню', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
 
             return;
         }
 
         $pickupDateRaw = (string) ($session->getPayload()['pickup_date'] ?? '');
         if ($pickupDateRaw === '') {
-            $this->vkApiClient->sendMessage($userId, 'Сначала выберите день: «меню», затем дату YYYY-MM-DD.');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Сначала выберите день самовывоза.',
+                [[['label' => '📋 Меню', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
 
             return;
         }
@@ -842,9 +972,10 @@ final class BotOrderFlowService
 
     private function sendVkWelcome(int $userId): void
     {
-        $this->vkApiClient->sendMessage(
+        $this->vkApiClient->sendMessageWithInlineKeyboard(
             $userId,
-            "Привет! Это заказ питания в Хануман.\n«меню» — выбрать день и блюда",
+            "Привет! Это заказ питания в Хануман.\nВыберите действие:",
+            $this->vkNavKeyboard(includeCheckout: false),
         );
     }
 
@@ -852,24 +983,41 @@ final class BotOrderFlowService
     {
         $menu = $this->menuCatalogService->getPublishedMenu();
         if ($menu === []) {
-            $this->vkApiClient->sendMessage($userId, 'Меню пока не опубликовано.');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Меню пока не опубликовано.',
+                [[['label' => '🔄 Обновить', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
 
             return;
         }
 
-        $lines = ['Дни меню — отправьте дату в формате YYYY-MM-DD:'];
+        $rows = [];
         foreach ($menu as $day) {
-            $lines[] = '- '.$day['date'];
+            $rows[] = [[
+                'label' => '📅 '.$day['date'],
+                'payload' => $this->vkCallbackPayload('date:'.$day['date']),
+                'color' => 'primary',
+            ]];
         }
 
-        $this->vkApiClient->sendMessage($userId, implode("\n", $lines));
+        $rows[] = [[
+            'label' => '🛒 Корзина',
+            'payload' => $this->vkCallbackPayload('cmd:cart'),
+        ]];
+
+        $this->vkApiClient->sendMessageWithInlineKeyboard($userId, 'Выберите день самовывоза:', $rows);
     }
 
     private function sendVkCartSummary(BotSession $session, int $userId): void
     {
         $cart = $this->botSessionService->getCart($session);
         if ($cart === []) {
-            $this->vkApiClient->sendMessage($userId, 'Корзина пуста. Напишите «меню».');
+            $this->vkApiClient->sendMessageWithInlineKeyboard(
+                $userId,
+                'Корзина пуста.',
+                [[['label' => '📋 Меню', 'payload' => $this->vkCallbackPayload('cmd:menu')]]],
+            );
 
             return;
         }
@@ -889,10 +1037,62 @@ final class BotOrderFlowService
             $lines[] = sprintf('- %s × %d', $name, $quantity);
         }
 
-        $lines[] = '';
-        $lines[] = '«оформить» — оформить заказ';
+        $this->vkApiClient->sendMessageWithInlineKeyboard(
+            $userId,
+            implode("\n", $lines),
+            $this->vkNavKeyboard(),
+        );
+    }
 
-        $this->vkApiClient->sendMessage($userId, implode("\n", $lines));
+    /**
+     * @return list<list<array{label: string, payload: string, color?: string}>>
+     */
+    private function vkNavKeyboard(bool $includeCheckout = true): array
+    {
+        $row = [
+            [
+                'label' => '📋 Меню',
+                'payload' => $this->vkCallbackPayload('cmd:menu'),
+            ],
+            [
+                'label' => '🛒 Корзина',
+                'payload' => $this->vkCallbackPayload('cmd:cart'),
+            ],
+        ];
+
+        if ($includeCheckout) {
+            $row[] = [
+                'label' => '✅ Оформить',
+                'payload' => $this->vkCallbackPayload('checkout'),
+                'color' => 'positive',
+            ];
+        }
+
+        return [$row];
+    }
+
+    private function vkCallbackPayload(string $data): string
+    {
+        return json_encode(['d' => $data], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function parseVkCallbackPayload(string $raw): string
+    {
+        if ($raw === '') {
+            return '';
+        }
+
+        try {
+            $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $raw;
+        }
+
+        if (\is_array($decoded) && isset($decoded['d']) && \is_string($decoded['d'])) {
+            return $decoded['d'];
+        }
+
+        return $raw;
     }
 
     /**

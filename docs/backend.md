@@ -98,6 +98,20 @@ Dish ──► MenuDayDish ◄── MenuDay
 
 `POST /api/bot/telegram/webhook` · `POST /api/bot/vk/callback`
 
+### Telegram
+
+Webhook принимает `message` и `callback_query`. Checkout: имя из профиля → комментарий → телефон (`request_contact`).
+
+### VK
+
+Callback API: типы `confirmation`, `message_new`, **`message_event`** (inline-кнопки).
+
+В настройках сообщества включить событие **«Нажатия на callback-кнопку»** (`message_event`).
+
+Payload кнопок: JSON `{"d":"cmd:menu"}` · значения как у Telegram (`date:YYYY-MM-DD`, `dish:{id}`, `checkout`).
+
+Текстовые команды (`меню`, `корзина`, дата, номер блюда) остаются запасным вариантом.
+
 ---
 
 ## Публичное API заказов
