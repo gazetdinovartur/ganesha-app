@@ -13,9 +13,9 @@ final class OrderStatusService
     ) {
     }
 
-    public function confirmPayment(Order $order): void
+    public function markAsPaid(Order $order): void
     {
-        if ($order->getStatus() === OrderStatus::Cancelled) {
+        if ($order->getStatus() === OrderStatus::Cancelled || $order->getStatus() === OrderStatus::Paid) {
             return;
         }
 

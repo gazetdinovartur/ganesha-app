@@ -6,6 +6,7 @@ use App\Entity\Order;
 use App\Enum\OrderStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<Order> */
 class OrderRepository extends ServiceEntityRepository
@@ -23,6 +24,15 @@ class OrderRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return ((int) $result) + 1;
+    }
+
+    public function findOneByUuid(string $uuid): ?Order
+    {
+        if (!Uuid::isValid($uuid)) {
+            return null;
+        }
+
+        return $this->findOneBy(['uuid' => Uuid::fromString($uuid)]);
     }
 
     /**

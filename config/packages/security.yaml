@@ -27,6 +27,7 @@ security:
             lazy: true
 
     access_control:
+        - { path: ^/api/payment/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/admin/login, roles: PUBLIC_ACCESS }
         - { path: ^/admin, roles: ROLE_ADMIN }
 
