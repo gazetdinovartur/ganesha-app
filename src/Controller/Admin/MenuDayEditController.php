@@ -5,13 +5,14 @@ namespace App\Controller\Admin;
 use App\Entity\MenuDay;
 use App\Form\Admin\MenuDayFormType;
 use Doctrine\ORM\EntityManagerInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_ADMIN')]
+#[AdminRoute(path: '/menu-day-form/{id}', name: 'menu_day_form', options: ['methods' => ['GET', 'POST']])]
 final class MenuDayEditController extends AbstractController
 {
     public function __construct(
@@ -19,8 +20,7 @@ final class MenuDayEditController extends AbstractController
     ) {
     }
 
-    #[Route('/admin/menu-day/{id}/edit', name: 'admin_menu_day_edit', methods: ['GET', 'POST'])]
-    public function edit(MenuDay $menuDay, Request $request): Response
+    public function __invoke(MenuDay $menuDay, Request $request): Response
     {
         $form = $this->createForm(MenuDayFormType::class, $menuDay);
         $form->handleRequest($request);

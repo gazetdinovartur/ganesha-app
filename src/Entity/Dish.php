@@ -50,6 +50,10 @@ class Dish
     #[ORM\Column]
     private int $sortOrder = 0;
 
+    #[ORM\ManyToOne(inversedBy: 'dishes')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?DishCategory $category = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -158,5 +162,17 @@ class Dish
     public function __toString(): string
     {
         return $this->name;
+    }
+
+    public function getCategory(): ?DishCategory
+    {
+        return $this->category;
+    }
+
+    public function setCategory(?DishCategory $category): static
+    {
+        $this->category = $category;
+
+        return $this;
     }
 }

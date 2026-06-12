@@ -6,13 +6,13 @@ use App\Entity\Dish;
 use App\Entity\MenuDayDish;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 final class MenuDayDishFormType extends AbstractType
 {
@@ -23,19 +23,27 @@ final class MenuDayDishFormType extends AbstractType
                 'label' => 'Блюдо',
                 'class' => Dish::class,
                 'choice_label' => 'name',
+                'placeholder' => 'Выберите блюдо',
+                'attr' => ['class' => 'form-select'],
+                'constraints' => [new NotBlank(message: 'Выберите блюдо.')],
                 'query_builder' => fn ($repo) => $repo->createQueryBuilder('d')
                     ->andWhere('d.isActive = true')
                     ->orderBy('d.sortOrder', 'ASC'),
             ])
             ->add('priceOverrideRub', NumberType::class, [
-                'label' => 'Цена дня, ₽ (пусто = базовая)',
+                'label' => 'Цена дня, ₽',
                 'mapped' => false,
                 'required' => false,
                 'html5' => true,
                 'scale' => 2,
+                'attr' => ['placeholder' => 'базовая', 'step' => '0.01', 'min' => '0'],
             ])
-            ->add('sortOrder', IntegerType::class, ['label' => 'Порядок'])
-            ->add('isAvailable', CheckboxType::class, ['label' => 'Доступно', 'required' => false]);
+            ->add('sortOrder', IntegerType::class, [
+                'label' => 'Порядок',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['min' => 0, 'class' => 'form-control text-center'],
+            ]);
 
         $builder->addEventListener(FormEvents::POST_SET_DATA, function (FormEvent $event): void {
             $menuDayDish = $event->getData();

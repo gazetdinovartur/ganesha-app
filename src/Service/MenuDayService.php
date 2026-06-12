@@ -19,7 +19,15 @@ final class MenuDayService
      */
     public function ensureWeekFrom(\DateTimeImmutable $startDate, int $days = 7): array
     {
-        $days = max(1, min(7, $days));
+        return $this->ensureDaysFrom($startDate, min(7, $days));
+    }
+
+    /**
+     * @return list<MenuDay>
+     */
+    public function ensureDaysFrom(\DateTimeImmutable $startDate, int $days): array
+    {
+        $days = max(1, min(62, $days));
         $result = [];
 
         for ($i = 0; $i < $days; ++$i) {

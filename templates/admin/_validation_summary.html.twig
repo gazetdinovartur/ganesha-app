@@ -1,0 +1,31 @@
+{% macro render_child_errors(children) %}
+    {% import _self as self %}
+    {% for child in children %}
+        {% set fieldLabel = child.vars.label|default(child.vars.name|default('Поле')) %}
+        {% for error in child.vars.errors %}
+            <li>{{ fieldLabel }}: {{ error.message }}</li>
+        {% endfor %}
+        {% if child.children is defined and child.children|length > 0 %}
+            {{ self.render_child_errors(child.children) }}
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+{% import _self as form_errors_helper %}
+
+{% if not form.vars.valid %}
+    <div class="alert alert-danger ganesha-validation mb-4" role="alert">
+        <div class="d-flex gap-2">
+            <i class="fa-solid fa-triangle-exclamation mt-1"></i>
+            <div>
+                <strong>Исправьте ошибки в форме</strong>
+                <ul class="mb-0 mt-2 small">
+                    {% for error in form.vars.errors %}
+                        <li>{{ error.message }}</li>
+                    {% endfor %}
+                    {{ form_errors_helper.render_child_errors(form.children) }}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endif %}

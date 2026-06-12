@@ -2,17 +2,17 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Order;
 use App\Enum\OrderStatus;
 use App\Service\KitchenSummaryService;
 use App\Service\OrderStatusService;
+use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_ADMIN')]
+#[AdminRoute(path: '/kitchen', name: 'kitchen', options: ['methods' => ['GET', 'POST']])]
 final class KitchenController extends AbstractController
 {
     public function __construct(
@@ -21,8 +21,7 @@ final class KitchenController extends AbstractController
     ) {
     }
 
-    #[Route('/admin/kitchen', name: 'admin_kitchen', methods: ['GET', 'POST'])]
-    public function index(Request $request): Response
+    public function __invoke(Request $request): Response
     {
         $dateParam = $request->query->get('date') ?? $request->request->get('date');
         $date = $dateParam
@@ -54,8 +53,6 @@ final class KitchenController extends AbstractController
         $selectedIds = array_map('intval', (array) $request->request->all('order_ids'));
 
         $count = match ($action) {
-            'confirm_payment' => $this->batchConfirmPayment($date, $selectedIds),
-            'to_paid' => $this->orderStatusService->batchUpdateStatus($selectedIds, OrderStatus::Paid),
             'to_ready' => $this->orderStatusService->batchUpdateStatus($selectedIds, OrderStatus::Ready),
             'to_completed' => $this->orderStatusService->batchUpdateStatus($selectedIds, OrderStatus::Completed),
             'to_cancelled' => $this->orderStatusService->batchUpdateStatus($selectedIds, OrderStatus::Cancelled),
@@ -69,29 +66,5 @@ final class KitchenController extends AbstractController
         } elseif ($action !== '') {
             $this->addFlash('warning', 'Ни один заказ не был обновлён.');
         }
-    }
-
-    /**
-     * @param list<int> $orderIds
-     */
-    private function batchConfirmPayment(\DateTimeImmutable $date, array $orderIds): int
-    {
-        if ($orderIds === []) {
-            return 0;
-        }
-
-        $count = 0;
-        foreach ($this->kitchenSummaryService->getOrdersForDate($date) as $order) {
-            if (!in_array($order->getId(), $orderIds, true)) {
-                continue;
-            }
-            if ($order->getStatus() !== OrderStatus::PendingPayment) {
-                continue;
-            }
-            $this->orderStatusService->confirmPayment($order);
-            ++$count;
-        }
-
-        return $count;
     }
 }

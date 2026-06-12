@@ -1,0 +1,428 @@
+/* Кастомные экраны админки Ganesha */
+
+body.ea {
+    --ganesha-control-height: 3.2rem;
+    --ganesha-control-radius: 0.55rem;
+    font-size: 15px;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.content .h1,
+.content .h2,
+.content .h3 {
+    letter-spacing: -0.01em;
+}
+
+/* Общие отступы форм */
+.ea-new .content-panel-body .form-group,
+.ea-edit .content-panel-body .form-group,
+.ea-new .content-panel-body [class*="field-"],
+.ea-edit .content-panel-body [class*="field-"] {
+    width: 100%;
+    max-width: 100%;
+}
+
+.ea-new .content-panel-body .form-widget,
+.ea-edit .content-panel-body .form-widget {
+    width: 100%;
+}
+
+.ea-new .content-panel-body .form-control,
+.ea-new .content-panel-body .form-select,
+.ea-edit .content-panel-body .form-control,
+.ea-edit .content-panel-body .form-select {
+    width: 100%;
+    min-height: 3.3rem;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+}
+
+.ea-new .content-panel-body textarea.form-control,
+.ea-edit .content-panel-body textarea.form-control {
+    min-height: 6.2rem;
+}
+
+.ea-new .content-panel-body .field-boolean .form-widget,
+.ea-edit .content-panel-body .field-boolean .form-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.ea-new .content-panel-body .field-boolean .form-check,
+.ea-edit .content-panel-body .field-boolean .form-check {
+    margin-bottom: 0;
+    padding-left: 0;
+}
+
+.ganesha-form-row .form-control,
+.ganesha-form-row .form-select {
+    min-height: var(--ganesha-control-height);
+    width: 100%;
+    padding: 0.82rem 1rem;
+    border-radius: var(--ganesha-control-radius);
+    font-size: 1rem;
+}
+
+.ganesha-form-row textarea.form-control {
+    min-height: calc(var(--ganesha-control-height) * 1.35);
+}
+
+.ganesha-form-row .form-widget {
+    width: 100%;
+}
+
+.ganesha-form-row .form-widget > .form-control,
+.ganesha-form-row .form-widget > .form-select,
+.ganesha-form-row .form-widget > .input-group,
+.ganesha-form-row .form-widget > .input-group > .form-control {
+    width: 100%;
+}
+
+.ea-new-dish .ganesha-form-row .form-control,
+.ea-new-dish .ganesha-form-row .form-select,
+.ea-edit-dish .ganesha-form-row .form-control,
+.ea-edit-dish .ganesha-form-row .form-select {
+    min-height: 3.3rem;
+    padding: 0.86rem 1rem;
+    font-size: 1rem;
+}
+
+.ea-new-dish .ganesha-form-row textarea.form-control,
+.ea-edit-dish .ganesha-form-row textarea.form-control {
+    min-height: 6.2rem;
+}
+
+.ea-new-dish .ganesha-form-row .select2-container,
+.ea-edit-dish .ganesha-form-row .select2-container {
+    width: 100% !important;
+}
+
+.ea-new-dish .ganesha-form-row .select2-selection,
+.ea-edit-dish .ganesha-form-row .select2-selection {
+    min-height: 3.3rem !important;
+    border-radius: var(--ganesha-control-radius);
+    display: flex !important;
+    align-items: center;
+    padding: 0.35rem 0.5rem;
+}
+
+.ea-new-dish .ganesha-form-row .select2-selection__rendered,
+.ea-edit-dish .ganesha-form-row .select2-selection__rendered {
+    width: 100%;
+    line-height: 1.35 !important;
+}
+
+.ganesha-form-row .form-check-input {
+    margin-top: 0;
+}
+
+.ganesha-form-row .form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.35rem;
+}
+
+.ganesha-form-row.form-check.form-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding-left: 0;
+}
+
+.ganesha-form-row.form-check.form-switch .form-check-input {
+    margin-left: 0;
+}
+
+.ganesha-form-row.form-check.form-switch .form-check-label {
+    margin-bottom: 0;
+}
+
+.card-header .btn,
+.ganesha-page-header .btn {
+    min-height: 2.35rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.d-flex.gap-2 > .btn,
+.d-flex.gap-2 > a.btn {
+    min-height: 2.5rem;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.92rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+}
+
+.ganesha-card .card-body {
+    padding: 1.25rem;
+}
+
+.ganesha-page-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.ganesha-card {
+    border: 0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    border-radius: 0.5rem;
+}
+
+.ganesha-card .card-header {
+    background: var(--bs-body-bg, #fff);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    font-weight: 600;
+}
+
+.day-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.day-publish-toggle {
+    display: inline-flex;
+    align-items: center;
+}
+
+.day-publish-toggle .form-check.form-switch {
+    margin: 0;
+    padding-left: 0.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.day-publish-toggle .form-check-label {
+    margin-bottom: 0;
+}
+
+.day-publish-toggle .form-check-input,
+.day-publish-toggle .form-switch .form-check-input {
+    margin-top: 0;
+    margin-left: 0;
+    float: none;
+}
+
+.kitchen-filter-form .form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.kitchen-filter-form .form-control,
+.kitchen-filter-form .btn {
+    min-height: var(--ganesha-control-height);
+}
+
+.ganesha-validation {
+    border-left: 4px solid var(--bs-danger);
+}
+
+.ganesha-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin: 1.5rem 0 0.75rem;
+}
+
+/* Меню недели */
+.ganesha-week-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.ganesha-week-nav .week-nav-btn {
+    width: 2.45rem;
+    height: 2.45rem;
+    min-height: 2.45rem;
+    border-radius: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.55);
+    color: var(--bs-primary);
+    background: #fff;
+}
+
+.ganesha-week-nav .week-nav-btn:hover {
+    color: #fff;
+    background: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+
+.ganesha-week-table tbody tr.is-today {
+    background: rgba(var(--bs-primary-rgb), 0.06);
+}
+
+.ganesha-week-table tbody tr.is-clickable-row {
+    cursor: pointer;
+}
+
+.ganesha-week-table tbody tr.is-clickable-row:focus-visible {
+    outline: 2px solid rgba(var(--bs-primary-rgb), 0.45);
+    outline-offset: -2px;
+}
+
+table.datagrid tbody tr.is-clickable-row {
+    cursor: pointer;
+}
+
+.ganesha-week-table .day-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-weight: 600;
+}
+
+.ganesha-week-table .day-sub {
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+}
+
+/* Блюда дня */
+.menu-dishes-table {
+    margin-bottom: 0;
+}
+
+.menu-dishes-table thead th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+    border-bottom-width: 1px;
+    white-space: nowrap;
+}
+
+.menu-dishes-table tbody td {
+    vertical-align: middle;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+
+.menu-dishes-table tbody .dish-entry.is-dragging {
+    opacity: 0.65;
+}
+
+.menu-dishes-table td.col-handle {
+    width: 2.5rem;
+}
+
+.menu-dishes-table .drag-handle {
+    color: #64748b;
+    line-height: 1;
+}
+
+.menu-dishes-table .drag-handle:hover {
+    color: #0f172a;
+}
+
+.menu-dishes-table tbody td .form-control,
+.menu-dishes-table tbody td .form-select {
+    min-height: var(--ganesha-control-height);
+    font-size: 0.92rem;
+    width: 100%;
+    padding-top: 0.58rem;
+    padding-bottom: 0.58rem;
+}
+
+.menu-dishes-table .col-price,
+.menu-dishes-table .col-order {
+    min-width: 8rem;
+}
+
+.menu-dishes-table tbody td .invalid-feedback {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.menu-cell-error {
+    min-height: 1.2rem;
+}
+
+.menu-cell-error .invalid-feedback {
+    margin-top: 0.2rem;
+}
+
+.menu-dishes-table .col-order input.form-control {
+    min-width: 5rem;
+    text-align: center;
+}
+
+/* Справочник блюд (index) */
+body.ganesha-dish-index table.datagrid tbody tr.dish-sort-row {
+    cursor: move;
+}
+
+body.ganesha-dish-index table.datagrid tbody tr.dish-sort-row.is-dragging {
+    opacity: 0.65;
+}
+
+body.ganesha-dish-index table.datagrid td.actions .action-edit {
+    display: none !important;
+}
+
+.menu-dishes-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+/* Состав блюда (коллекция ингредиентов) */
+.ingredients-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ingredient-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.ingredient-row__field {
+    flex: 1;
+    min-width: 0;
+}
+
+.ingredient-row .invalid-feedback {
+    margin-top: 0.25rem;
+}
+
+.ingredient-row [data-collection-remove] {
+    min-width: 2.35rem;
+    min-height: 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.dish-composition-panel {
+    background: rgba(15, 23, 42, 0.03);
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.dish-composition-panel__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}

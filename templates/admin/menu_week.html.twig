@@ -1,41 +1,76 @@
 {% extends '@EasyAdmin/page/content.html.twig' %}
 
+{% set weekdayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'] %}
+{% set weekdayShort = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'] %}
+
 {% block page_title %}Меню недели{% endblock %}
 
 {% block page_actions %}
-    <a href="{{ path('admin_menu_week', {start: prevStart.format('Y-m-d')}) }}" class="btn btn-secondary btn-sm">← Неделя</a>
-    <a href="{{ path('admin_menu_week', {start: nextStart.format('Y-m-d')}) }}" class="btn btn-secondary btn-sm">Неделя →</a>
+    <div class="ganesha-week-nav" role="group" aria-label="Навигация по неделям">
+        <a href="{{ path('admin_menu_week', {start: prevStart.format('Y-m-d')}) }}" class="btn week-nav-btn" title="Предыдущая неделя" aria-label="Предыдущая неделя">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <a href="{{ path('admin_menu_week') }}" class="btn week-nav-btn" title="Текущая неделя" aria-label="Текущая неделя">
+            <i class="fa-solid fa-calendar-day"></i>
+        </a>
+        <a href="{{ path('admin_menu_week', {start: nextStart.format('Y-m-d')}) }}" class="btn week-nav-btn" title="Следующая неделя" aria-label="Следующая неделя">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+    </div>
 {% endblock %}
 
 {% block main %}
-    <p class="text-muted mb-3">С {{ start.format('d.m.Y') }} · до 7 дней</p>
+    <div class="ganesha-page-header">
+        <div>
+            <p class="text-muted mb-0 small">Неделя с {{ start.format('d.m.Y') }} · 7 дней</p>
+        </div>
+    </div>
 
-    <table class="table table-striped align-middle">
-        <thead>
-        <tr>
-            <th>Дата</th>
-            <th>Опубликован</th>
-            <th>Позиций</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for day in days %}
-            <tr>
-                <td>{{ day.date.format('D, d.m.Y') }}</td>
-                <td>
-                    {% if day.isPublished %}
-                        <span class="badge text-bg-success">да</span>
-                    {% else %}
-                        <span class="badge text-bg-secondary">нет</span>
-                    {% endif %}
-                </td>
-                <td>{{ day.dishes|length }}</td>
-                <td class="text-end">
-                    <a href="{{ path('admin_menu_day_edit', {id: day.id}) }}" class="btn btn-sm btn-primary">Редактировать</a>
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="card ganesha-card">
+        <div class="table-responsive">
+            <table class="table table-hover ganesha-week-table mb-0 align-middle">
+                <thead class="table-light">
+                <tr>
+                    <th>День</th>
+                    <th class="text-center" style="width: 8rem">Публикация</th>
+                    <th class="text-center" style="width: 6rem">Позиций</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for day in days %}
+                    {% set isToday = day.date.format('Y-m-d') == today.format('Y-m-d') %}
+                    <tr class="{{ isToday ? 'is-today' : '' }}" data-row-link="{{ path('admin_menu_day_form', {id: day.id}) }}" tabindex="0">
+                        <td>
+                            <div class="day-label">
+                                {{ weekdayShort[day.date.format('w')] }}, {{ day.date.format('d.m.Y') }}
+                                {% if isToday %}
+                                    <span class="badge text-bg-primary ms-1">сегодня</span>
+                                {% endif %}
+                            </div>
+                            <div class="day-sub">{{ weekdayNames[day.date.format('w')] }}</div>
+                        </td>
+                        <td class="text-center">
+                            {% if day.isPublished %}
+                                <span class="badge rounded-pill text-bg-success">
+                                    <i class="fa-solid fa-eye me-1"></i>опубликован
+                                </span>
+                            {% else %}
+                                <span class="badge rounded-pill text-bg-light text-dark border">
+                                    <i class="fa-solid fa-eye-slash me-1"></i>черновик
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if day.dishes|length > 0 %}
+                                <span class="fw-semibold">{{ day.dishes|length }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 {% endblock %}

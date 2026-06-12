@@ -24,6 +24,8 @@ final class CustomerCrudController extends AbstractCrudController
         return $crud
             ->setEntityLabelInSingular('Клиент')
             ->setEntityLabelInPlural('Клиенты')
+            ->setPageTitle(Crud::PAGE_INDEX, 'Клиенты')
+            ->setPageTitle(Crud::PAGE_DETAIL, static fn (Customer $customer): string => sprintf('Клиент: %s', $customer->getName() ?: '—'))
             ->setDefaultSort(['createdAt' => 'DESC']);
     }
 
@@ -37,8 +39,8 @@ final class CustomerCrudController extends AbstractCrudController
     {
         yield TextField::new('name', 'Имя');
         yield TextField::new('phone', 'Телефон');
-        yield TextField::new('telegramId', 'Telegram ID')->hideOnIndex();
-        yield TextField::new('vkId', 'VK ID')->hideOnIndex();
+        yield TextField::new('telegramId', 'ID в Telegram')->hideOnIndex();
+        yield TextField::new('vkId', 'ID во ВКонтакте')->hideOnIndex();
         yield TextareaField::new('defaultComment', 'Заметка')->hideOnIndex();
         yield DateTimeField::new('createdAt', 'Создан')->hideOnForm();
     }

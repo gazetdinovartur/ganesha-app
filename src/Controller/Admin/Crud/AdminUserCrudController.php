@@ -22,7 +22,9 @@ final class AdminUserCrudController extends AbstractCrudController
     {
         return $crud
             ->setEntityLabelInSingular('Админ')
-            ->setEntityLabelInPlural('Админы');
+            ->setEntityLabelInPlural('Админы')
+            ->setPageTitle(Crud::PAGE_INDEX, 'Администраторы')
+            ->setPageTitle(Crud::PAGE_DETAIL, static fn (AdminUser $adminUser): string => sprintf('Администратор: %s', $adminUser->getEmail() ?: '—'));
     }
 
     public function configureActions(Actions $actions): Actions
@@ -32,7 +34,7 @@ final class AdminUserCrudController extends AbstractCrudController
 
     public function configureFields(string $pageName): iterable
     {
-        yield TextField::new('email', 'Email');
+        yield TextField::new('email', 'Электронная почта');
         yield ArrayField::new('roles', 'Роли')->hideOnIndex();
     }
 }

@@ -1,0 +1,99 @@
+{% use '@EasyAdmin/symfony-form-themes/bootstrap_5_layout.html.twig' %}
+
+{% block form_row %}
+    <div class="ganesha-form-row mb-3">
+        {{ form_label(form) }}
+        <div class="form-widget">
+            {{ form_widget(form) }}
+            {{ form_help(form) }}
+            {{ form_errors(form) }}
+        </div>
+    </div>
+{% endblock form_row %}
+
+{% block form_errors %}
+    {% if errors|length > 0 %}
+        {% for error in errors %}
+            <div class="invalid-feedback d-block">
+                <i class="fa-solid fa-circle-exclamation me-1"></i>{{ error.message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endblock form_errors %}
+
+{% block form_label %}
+    {% if label is not same as(false) %}
+        {% set label_attr = label_attr|merge({class: (label_attr.class|default('') ~ ' form-label mb-2')|trim}) %}
+    {% endif %}
+    {{ parent() }}
+{% endblock form_label %}
+
+{% block checkbox_row %}
+    <div class="form-check form-switch ganesha-form-row mb-3 py-1">
+        {{- form_widget(form) -}}
+        {{- form_label(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{% endblock checkbox_row %}
+
+{% block checkbox_widget %}
+    {% set attr = attr|merge({class: (attr.class|default('') ~ ' form-check-input')|trim}) %}
+    {{ parent() }}
+{% endblock checkbox_widget %}
+
+{% block form_widget_simple %}
+    {% set type = type|default('text') %}
+    {% if type not in ['file', 'hidden', 'checkbox', 'radio'] %}
+        {% set attr = attr|merge({class: (attr.class|default('') ~ ' form-control')|trim}) %}
+    {% endif %}
+    {% if not valid %}
+        {% set attr = attr|merge({class: (attr.class|default('') ~ ' is-invalid')|trim}) %}
+    {% endif %}
+    {{ parent() }}
+{% endblock form_widget_simple %}
+
+{% block textarea_widget %}
+    {% set attr = attr|merge({class: (attr.class|default('') ~ ' form-control')|trim}) %}
+    {% if not valid %}
+        {% set attr = attr|merge({class: (attr.class|default('') ~ ' is-invalid')|trim}) %}
+    {% endif %}
+    {{ parent() }}
+{% endblock textarea_widget %}
+
+{% block collection_entry_row %}
+    <div class="ingredient-row collection-row">
+        <div class="ingredient-row__field">
+            {{ form_widget(form) }}
+            {{ form_errors(form) }}
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm flex-shrink-0" data-collection-remove title="Удалить строку">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+{% endblock collection_entry_row %}
+
+{% block collection_widget %}
+    {% if prototype is defined and not prototype.rendered %}
+        {% set prototype_html %}
+            <div class="ingredient-row collection-row">
+                <div class="ingredient-row__field">{{ form_widget(prototype) }}</div>
+                <button type="button" class="btn btn-outline-danger btn-sm flex-shrink-0" data-collection-remove title="Удалить строку">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        {% endset %}
+    {% endif %}
+    <div class="ingredients-list mb-2"
+         data-collection-holder
+         data-collection-row=".collection-row"
+         data-collection-add="#{{ id }}_add_btn"
+         {% if prototype is defined %}data-prototype="{{ prototype_html|e('html_attr') }}"{% endif %}>
+        {{ form_errors(form) }}
+        {{ block('form_rows') }}
+    </div>
+    {% if allow_add %}
+        <button type="button" class="btn btn-sm btn-outline-primary mt-1 mb-2" id="{{ id }}_add_btn">
+            <i class="fa-solid fa-plus me-1"></i>Добавить ингредиент
+        </button>
+    {% endif %}
+{% endblock collection_widget %}

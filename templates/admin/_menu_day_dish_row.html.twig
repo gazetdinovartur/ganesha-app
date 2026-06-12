@@ -1,0 +1,30 @@
+<tr class="dish-entry collection-row">
+    <td class="col-handle text-center">
+        <button type="button" class="btn btn-link btn-sm p-0 drag-handle" data-drag-handle title="Перетащите для изменения порядка">
+            <i class="fa-solid fa-grip-vertical"></i>
+        </button>
+    </td>
+    <td class="col-dish">
+        {{ form_widget(dishForm.dish) }}
+        <div class="menu-cell-error">
+            {{ form_errors(dishForm.dish) }}
+        </div>
+    </td>
+    <td class="col-price">
+        {{ form_widget(dishForm.priceOverrideRub) }}
+        <div class="menu-cell-error">
+            {{ form_errors(dishForm.priceOverrideRub) }}
+        </div>
+    </td>
+    <td class="col-order">
+        {{ form_widget(dishForm.sortOrder) }}
+        <div class="menu-cell-error">
+            {{ form_errors(dishForm.sortOrder) }}
+        </div>
+    </td>
+    <td class="col-actions text-end">
+        <button type="button" class="btn btn-outline-danger btn-sm" data-collection-remove title="Убрать из меню">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </td>
+</tr>

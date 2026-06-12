@@ -1,0 +1,27 @@
+{% use 'form/admin_theme.html.twig' %}
+
+{% block form_row %}
+    {% if form.vars.name == 'weightG' %}
+        <div class="dish-composition-panel mb-4">
+            <div class="dish-composition-panel__title">
+                <i class="fa-solid fa-leaf me-1"></i>Состав блюда
+            </div>
+    {% endif %}
+
+    {% if form.vars.name in ['weightG', 'ingredients', 'allergensText', 'compositionNote'] %}
+        <div class="ganesha-form-row mb-3">
+            {{ form_label(form) }}
+            <div class="form-widget">
+                {{ form_widget(form) }}
+                {{ form_help(form) }}
+                {{ form_errors(form) }}
+            </div>
+        </div>
+    {% else %}
+        {{ parent() }}
+    {% endif %}
+
+    {% if form.vars.name == 'compositionNote' %}
+        </div>
+    {% endif %}
+{% endblock form_row %}
