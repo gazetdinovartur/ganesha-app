@@ -442,9 +442,10 @@ final class BotOrderFlowService
                 $this->telegramNavKeyboard(),
             );
         } elseif ($data === 'checkout') {
-            $this->startTelegramCheckout($session, $chatId, $customer);
+            $telegramFrom = \is_array($callback['from'] ?? null) ? $callback['from'] : null;
+            $this->startTelegramCheckout($session, $chatId, $customer, $telegramFrom);
         } elseif ($data === 'name:use') {
-            $this->proceedTelegramCommentStep($session, $customer, $chatId);
+            $this->applyTelegramPendingName($session, $customer, $chatId);
         } elseif ($data === 'name:new') {
             $this->promptTelegramNameInput($session, $chatId);
         } elseif ($data === 'comment:skip') {
@@ -616,8 +617,12 @@ final class BotOrderFlowService
         );
     }
 
-    private function startTelegramCheckout(BotSession $session, string $chatId, ?Customer $customer): void
-    {
+    private function startTelegramCheckout(
+        BotSession $session,
+        string $chatId,
+        ?Customer $customer,
+        ?array $telegramFrom = null,
+    ): void {
         $cart = $this->botSessionService->getCart($session);
         if ($cart === []) {
             $this->telegramApiClient->sendMessageWithInlineKeyboard(
@@ -645,24 +650,27 @@ final class BotOrderFlowService
             $this->entityManager->flush();
         }
 
-        if ($this->hasUsableCustomerName($customer)) {
-            $this->promptTelegramNameConfirm($session, $customer, $chatId);
+        $profileName = $this->resolveTelegramDisplayName($telegramFrom);
+        if ($profileName === '') {
+            $this->promptTelegramNameInput($session, $chatId);
 
             return;
         }
 
-        $this->promptTelegramNameInput($session, $chatId);
+        $this->promptTelegramNameConfirm($session, $chatId, $profileName);
     }
 
-    private function promptTelegramNameConfirm(BotSession $session, Customer $customer, string $chatId): void
+    private function promptTelegramNameConfirm(BotSession $session, string $chatId, string $name): void
     {
-        $session->setState('await_name');
+        $session->mergePayload(['pending_name' => $name])->setState('await_name');
         $this->entityManager->flush();
 
-        $name = $customer->getName();
         $this->telegramApiClient->sendMessageWithInlineKeyboard(
             $chatId,
-            sprintf("Оформление заказа.\nИмя: <b>%s</b>", htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+            sprintf(
+                "Оформление заказа.\nИмя из профиля Telegram: <b>%s</b>",
+                htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            ),
             [
                 [
                     ['text' => '✅ Верно', 'callback_data' => 'name:use'],
@@ -670,6 +678,39 @@ final class BotOrderFlowService
                 ],
             ],
         );
+    }
+
+    private function applyTelegramPendingName(BotSession $session, ?Customer $customer, string $chatId): void
+    {
+        $name = trim((string) ($session->getPayload()['pending_name'] ?? ''));
+        if ($name === '') {
+            $this->promptTelegramNameInput($session, $chatId);
+
+            return;
+        }
+
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
+        }
+
+        $customer->setName($name);
+        $this->entityManager->flush();
+        $this->proceedTelegramCommentStep($session, $customer, $chatId);
+    }
+
+    /**
+     * @param array<string, mixed>|null $from
+     */
+    private function resolveTelegramDisplayName(?array $from): string
+    {
+        if ($from === null) {
+            return '';
+        }
+
+        $firstName = trim((string) ($from['first_name'] ?? ''));
+        $lastName = trim((string) ($from['last_name'] ?? ''));
+
+        return trim($firstName.($lastName !== '' ? ' '.$lastName : ''));
     }
 
     private function promptTelegramNameInput(BotSession $session, string $chatId): void
@@ -754,13 +795,6 @@ final class BotOrderFlowService
         }
 
         return [$row];
-    }
-
-    private function hasUsableCustomerName(Customer $customer): bool
-    {
-        $name = trim($customer->getName());
-
-        return $name !== '' && $name !== 'Гость';
     }
 
     private function finalizeOrder(

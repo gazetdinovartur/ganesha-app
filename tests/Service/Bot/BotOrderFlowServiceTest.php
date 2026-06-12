@@ -83,7 +83,7 @@ final class BotOrderFlowServiceTest extends TestCase
         );
     }
 
-    public function testTelegramCheckoutPromptsNameForGuest(): void
+    public function testTelegramCheckoutPromptsManualNameWithoutProfile(): void
     {
         $customer = (new Customer())->setPhone('bot:telegram:100')->setName('Гость');
         $this->customerService->method('findByMessenger')->willReturn($customer);
@@ -109,9 +109,9 @@ final class BotOrderFlowServiceTest extends TestCase
         self::assertSame('await_name', $this->session->getState());
     }
 
-    public function testTelegramCheckoutConfirmsExistingName(): void
+    public function testTelegramCheckoutConfirmsProfileName(): void
     {
-        $customer = (new Customer())->setPhone('bot:telegram:100')->setName('Анна');
+        $customer = (new Customer())->setPhone('bot:telegram:100')->setName('Гость');
         $this->customerService->method('findByMessenger')->willReturn($customer);
         $this->customerService->method('ensureMessengerCustomer')->willReturn($customer);
 
@@ -120,7 +120,7 @@ final class BotOrderFlowServiceTest extends TestCase
             ->method('sendMessageWithInlineKeyboard')
             ->with(
                 '100',
-                self::stringContains('Анна'),
+                self::stringContains('Анна Петрова'),
                 self::callback(static fn (array $keyboard): bool => $keyboard[0][0]['callback_data'] === 'name:use'),
             );
 
@@ -128,15 +128,20 @@ final class BotOrderFlowServiceTest extends TestCase
             'callback_query' => [
                 'id' => 'cb2',
                 'data' => 'checkout',
+                'from' => ['first_name' => 'Анна', 'last_name' => 'Петрова'],
                 'message' => ['chat' => ['id' => 100]],
             ],
         ]);
+
+        self::assertSame('Анна Петрова', $this->session->getPayload()['pending_name'] ?? null);
     }
 
     public function testTelegramNameUseMovesToCommentStep(): void
     {
-        $customer = (new Customer())->setPhone('bot:telegram:100')->setName('Анна');
+        $customer = (new Customer())->setPhone('bot:telegram:100')->setName('Гость');
+        $this->session->mergePayload(['pending_name' => 'Анна Петрова'])->setState('await_name');
         $this->customerService->method('findByMessenger')->willReturn($customer);
+        $this->customerService->method('ensureMessengerCustomer')->willReturn($customer);
 
         $this->telegramApiClient
             ->expects(self::once())
@@ -156,6 +161,7 @@ final class BotOrderFlowServiceTest extends TestCase
         ]);
 
         self::assertSame('await_comment', $this->session->getState());
+        self::assertSame('Анна Петрова', $customer->getName());
     }
 
     public function testTelegramCommentSkipRequestsPhone(): void
