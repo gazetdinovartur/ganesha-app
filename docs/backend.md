@@ -80,14 +80,17 @@ Dish ──► MenuDayDish ◄── MenuDay
 | Канал | Как |
 |---|---|
 | API / сайт | `personal_data_consent: true` |
-| Telegram | кнопка «✅ Согласен» |
-| VK | «согласен» |
+| Telegram / VK | не требуется |
 
 ---
 
 ## Повтор заказа
 
 `GET/POST /api/orders/repeat/{repeatToken}` · ссылка `/order/repeat/{token}`
+
+**GET** — превью: телефон, имя, точка выдачи из исходного заказа.
+
+**POST** — новый заказ: обязательны `pickup_date` и `items`; состав и комментарий не копируются из старого заказа.
 
 ---
 

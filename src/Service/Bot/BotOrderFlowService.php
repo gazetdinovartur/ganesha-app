@@ -32,8 +32,6 @@ final class BotOrderFlowService
         private readonly TelegramApiClient $telegramApiClient,
         private readonly VkApiClient $vkApiClient,
         private readonly EntityManagerInterface $entityManager,
-        #[Autowire(param: 'app.privacy_policy_url')]
-        private readonly string $privacyPolicyUrl,
         #[Autowire(param: 'app.public_base_url')]
         private readonly string $publicBaseUrl,
         #[Autowire(param: 'app.vk_confirmation_secret')]
@@ -75,13 +73,13 @@ final class BotOrderFlowService
         $text = trim((string) ($message['text'] ?? ''));
 
         if (str_starts_with($text, '/start')) {
-            $this->sendTelegramWelcome($chatId, $customer);
+            $this->sendTelegramWelcome($chatId);
 
             return;
         }
 
         if (str_starts_with($text, '/menu')) {
-            $this->sendTelegramDatePicker($chatId, $customer);
+            $this->sendTelegramDatePicker($chatId);
 
             return;
         }
@@ -139,13 +137,12 @@ final class BotOrderFlowService
         }
 
         $session = $this->botSessionService->getOrCreate(BotPlatform::Vk, $userId);
-        $customer = $this->customerService->findByMessenger(BotPlatform::Vk, $userId);
         $text = trim((string) ($message['text'] ?? ''));
 
         if ($text === 'начать' || str_starts_with($text, '/start') || $text === 'start') {
-            $this->sendVkWelcome((int) $userId, $customer);
+            $this->sendVkWelcome((int) $userId);
         } elseif ($text === 'меню' || $text === '/menu') {
-            $this->sendVkDatePicker((int) $userId, $customer);
+            $this->sendVkDatePicker((int) $userId);
         } elseif ($text === 'корзина' || $text === '/cart') {
             $this->sendVkCartSummary($session, (int) $userId);
         } elseif (str_starts_with($text, '/repeat ') || str_starts_with($text, 'повтор ')) {
@@ -154,10 +151,6 @@ final class BotOrderFlowService
             if ($token !== '') {
                 $this->handleRepeatToken(BotPlatform::Vk, $userId, $token);
             }
-        } elseif ($text === 'согласен' || $text === '✅ согласен') {
-            $this->customerService->grantConsentForMessenger(BotPlatform::Vk, $userId);
-            $this->entityManager->flush();
-            $this->vkApiClient->sendMessage((int) $userId, 'Спасибо! Напишите «меню», чтобы выбрать день.');
         } else {
             $this->vkApiClient->sendMessage(
                 (int) $userId,
@@ -172,7 +165,6 @@ final class BotOrderFlowService
     {
         $chatId = (string) ($callback['message']['chat']['id'] ?? '');
         $data = (string) ($callback['data'] ?? '');
-        $callbackId = (string) ($callback['id'] ?? '');
 
         if ($chatId === '' || $data === '') {
             return;
@@ -181,11 +173,7 @@ final class BotOrderFlowService
         $session = $this->botSessionService->getOrCreate(BotPlatform::Telegram, $chatId);
         $customer = $this->customerService->findByMessenger(BotPlatform::Telegram, $chatId);
 
-        if ($data === 'consent:yes') {
-            $customer = $this->customerService->grantConsentForMessenger(BotPlatform::Telegram, $chatId);
-            $this->entityManager->flush();
-            $this->telegramApiClient->sendMessage($chatId, 'Спасибо! Нажмите /menu, чтобы выбрать день.');
-        } elseif (str_starts_with($data, 'date:')) {
+        if (str_starts_with($data, 'date:')) {
             $date = substr($data, 5);
             $session->mergePayload(['pickup_date' => $date])->setState('select_dish');
             $this->entityManager->flush();
@@ -216,7 +204,7 @@ final class BotOrderFlowService
         }
 
         if ($customer === null) {
-            $customer = $this->customerService->grantConsentForMessenger(BotPlatform::Telegram, $chatId);
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
         }
 
         try {
@@ -227,38 +215,20 @@ final class BotOrderFlowService
             return;
         }
 
-        if (!$customer->hasPersonalDataConsent()) {
-            $this->customerService->grantConsent($customer);
-        }
-
         $this->entityManager->flush();
         $this->finalizeTelegramOrder($session, $chatId, $customer);
     }
 
-    private function sendTelegramWelcome(string $chatId, ?Customer $customer): void
+    private function sendTelegramWelcome(string $chatId): void
     {
-        if ($customer !== null && $customer->hasPersonalDataConsent()) {
-            $this->telegramApiClient->sendMessage($chatId, "Привет! Это заказ питания в Хануман.\n/menu — выбрать меню");
-
-            return;
-        }
-
-        $policy = $this->privacyPolicyUrl !== '' ? $this->privacyPolicyUrl : 'политикой конфиденциальности';
-        $this->telegramApiClient->sendMessageWithInlineKeyboard(
+        $this->telegramApiClient->sendMessage(
             $chatId,
-            "Привет! Перед заказом нужно согласие на обработку персональных данных (телефон, имя).\n{$policy}",
-            [[['text' => '✅ Согласен', 'callback_data' => 'consent:yes']]],
+            "Привет! Это заказ питания в Хануман.\n/menu — выбрать меню",
         );
     }
 
-    private function sendTelegramDatePicker(string $chatId, ?Customer $customer): void
+    private function sendTelegramDatePicker(string $chatId): void
     {
-        if ($customer === null || !$customer->hasPersonalDataConsent()) {
-            $this->sendTelegramWelcome($chatId, $customer);
-
-            return;
-        }
-
         $rows = [];
         foreach ($this->menuCatalogService->getPublishedMenu() as $day) {
             $rows[] = [[
@@ -315,10 +285,9 @@ final class BotOrderFlowService
 
     private function startTelegramCheckout(BotSession $session, string $chatId, ?Customer $customer): void
     {
-        if ($customer === null || !$customer->hasPersonalDataConsent()) {
-            $this->sendTelegramWelcome($chatId, $customer);
-
-            return;
+        if ($customer === null) {
+            $customer = $this->customerService->ensureMessengerCustomer(BotPlatform::Telegram, $chatId);
+            $this->entityManager->flush();
         }
 
         $phone = $customer->getPhone();
@@ -366,29 +335,13 @@ final class BotOrderFlowService
         $this->entityManager->flush();
     }
 
-    private function sendVkWelcome(int $userId, ?Customer $customer): void
+    private function sendVkWelcome(int $userId): void
     {
-        if ($customer !== null && $customer->hasPersonalDataConsent()) {
-            $this->vkApiClient->sendMessage($userId, "Привет! Напишите «меню», чтобы выбрать день.");
-
-            return;
-        }
-
-        $policy = $this->privacyPolicyUrl !== '' ? $this->privacyPolicyUrl : 'политикой конфиденциальности';
-        $this->vkApiClient->sendMessage(
-            $userId,
-            "Привет! Перед заказом нужно согласие на обработку ПДн.\n{$policy}\n\nОтветьте «согласен».",
-        );
+        $this->vkApiClient->sendMessage($userId, "Привет! Напишите «меню», чтобы выбрать день.");
     }
 
-    private function sendVkDatePicker(int $userId, ?Customer $customer): void
+    private function sendVkDatePicker(int $userId): void
     {
-        if ($customer === null || !$customer->hasPersonalDataConsent()) {
-            $this->sendVkWelcome($userId, $customer);
-
-            return;
-        }
-
         $lines = ["Дни меню (ответьте датой YYYY-MM-DD):"];
         foreach ($this->menuCatalogService->getPublishedMenu() as $day) {
             $lines[] = '- '.$day['date'];
@@ -416,14 +369,21 @@ final class BotOrderFlowService
         }
 
         $preview = $this->orderRepeatService->buildPreview($source);
+        $customer = $preview['customer'] ?? [];
+        $pickupPoint = $preview['pickup_point'] ?? [];
+        $name = (string) ($customer['name'] ?? '');
+        $phone = (string) ($customer['phone'] ?? '');
+        $pointName = (string) ($pickupPoint['name'] ?? '');
+
         $this->sendPlatformMessage(
             $platform,
             $externalUserId,
             sprintf(
-                "Повтор заказа #%d на %s.\nПозиций: %d\nОформите через API или сайт: %s",
+                "Повтор заказа #%d.\nПодставятся: %s, %s, точка «%s».\nДату и блюда выберите заново:\n%s",
                 $source->getHumanNumber(),
-                $preview['pickup_date'],
-                count($preview['items']),
+                $name !== '' ? $name : 'имя',
+                $phone !== '' && !str_starts_with($phone, 'bot:') ? $phone : 'телефон',
+                $pointName !== '' ? $pointName : 'выдачи',
                 $this->repeatUrl($token),
             ),
         );
@@ -449,7 +409,6 @@ final class BotOrderFlowService
             items: $items,
             name: $customer->getName(),
             channel: $channel,
-            personalDataConsent: true,
         ));
     }
 

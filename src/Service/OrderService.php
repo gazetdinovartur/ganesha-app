@@ -8,6 +8,7 @@ use App\Entity\MenuDayDish;
 use App\Entity\Order;
 use App\Entity\OrderItem;
 use App\Entity\PickupPoint;
+use App\Enum\OrderChannel;
 use App\Enum\OrderStatus;
 use App\Exception\OrderCreationException;
 use App\Repository\MenuDayDishRepository;
@@ -42,15 +43,7 @@ final class OrderService
         $menuDayDishes = $this->resolveMenuDayDishes($mergedItems, $pickupDate);
 
         return $this->entityManager->wrapInTransaction(function () use ($dto, $pickupDate, $pickupPoint, $mergedItems, $menuDayDishes): Order {
-            if (!$dto->personalDataConsent && $dto->channel === OrderChannel::Web) {
-                throw new OrderCreationException(
-                    'Необходимо согласие на обработку персональных данных.',
-                    422,
-                    'consent_required',
-                );
-            }
-
-            if ($dto->channel !== OrderChannel::Web && !$dto->personalDataConsent) {
+            if ($dto->channel === OrderChannel::Web && !$dto->personalDataConsent) {
                 throw new OrderCreationException(
                     'Необходимо согласие на обработку персональных данных.',
                     422,
@@ -61,10 +54,10 @@ final class OrderService
             $customer = $this->customerService->findOrCreate(
                 $dto->phone,
                 $dto->name,
-                requireConsent: false,
+                requireConsent: $dto->channel === OrderChannel::Web && $dto->personalDataConsent,
             );
 
-            if (!$customer->hasPersonalDataConsent()) {
+            if ($dto->channel === OrderChannel::Web && $dto->personalDataConsent && !$customer->hasPersonalDataConsent()) {
                 $this->customerService->grantConsent($customer);
             }
 

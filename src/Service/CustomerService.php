@@ -110,23 +110,21 @@ final class CustomerService
         return $customer;
     }
 
-    public function grantConsentForMessenger(BotPlatform $platform, string $externalUserId): Customer
+    public function ensureMessengerCustomer(BotPlatform $platform, string $externalUserId): Customer
     {
         $customer = $this->findByMessenger($platform, $externalUserId);
-        if ($customer === null) {
-            $customer = (new Customer())
-                ->setPhone(sprintf('bot:%s:%s', $platform->value, $externalUserId))
-                ->setName('Гость')
-                ->grantPersonalDataConsent();
-
-            $this->linkMessenger($customer, $platform, $externalUserId);
-
-            $this->entityManager->persist($customer);
-
+        if ($customer instanceof Customer) {
             return $customer;
         }
 
-        return $this->grantConsent($customer);
+        $customer = (new Customer())
+            ->setPhone(sprintf('bot:%s:%s', $platform->value, $externalUserId))
+            ->setName('Гость');
+
+        $this->linkMessenger($customer, $platform, $externalUserId);
+        $this->entityManager->persist($customer);
+
+        return $customer;
     }
 
     public static function normalizePhone(string $phone): string

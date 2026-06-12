@@ -24,20 +24,14 @@ final class OrderRepeatController extends AbstractController
     }
 
     #[Route('/{token}', name: 'api_orders_repeat_preview', methods: ['GET'])]
-    public function preview(string $token, Request $request): JsonResponse
+    public function preview(string $token): JsonResponse
     {
         $order = $this->orderRepeatService->getSourceOrder($token);
         if ($order === null) {
             return $this->json(['error' => 'repeat_not_found', 'message' => 'Ссылка недействительна.'], Response::HTTP_NOT_FOUND);
         }
 
-        $pickupDateRaw = $request->query->get('pickup_date');
-        $pickupDate = null;
-        if (\is_string($pickupDateRaw) && $pickupDateRaw !== '') {
-            $pickupDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $pickupDateRaw) ?: null;
-        }
-
-        return $this->json($this->orderRepeatService->buildPreview($order, $pickupDate));
+        return $this->json($this->orderRepeatService->buildPreview($order));
     }
 
     #[Route('/{token}', name: 'api_orders_repeat_create', methods: ['POST'])]
@@ -58,18 +52,21 @@ final class OrderRepeatController extends AbstractController
             return $this->json(['error' => 'pickup_date_invalid', 'message' => 'Некорректная дата.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $items = null;
-        if (isset($payload['items']) && \is_array($payload['items'])) {
-            $items = [];
-            foreach ($payload['items'] as $itemRaw) {
-                if (!\is_array($itemRaw)) {
-                    continue;
-                }
-                $items[] = new CreateOrderItemDto(
-                    (int) ($itemRaw['menu_day_dish_id'] ?? 0),
-                    (int) ($itemRaw['quantity'] ?? 1),
-                );
+        $itemsRaw = $payload['items'] ?? null;
+        if (!\is_array($itemsRaw) || $itemsRaw === []) {
+            return $this->json(['error' => 'items_required', 'message' => 'Добавьте хотя бы одно блюдо.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $items = [];
+        foreach ($itemsRaw as $itemRaw) {
+            if (!\is_array($itemRaw)) {
+                throw new OrderCreationException('Некорректный формат позиции.', 422, 'invalid_item');
             }
+
+            $items[] = new CreateOrderItemDto(
+                (int) ($itemRaw['menu_day_dish_id'] ?? 0),
+                (int) ($itemRaw['quantity'] ?? 1),
+            );
         }
 
         $channel = OrderChannel::tryFrom((string) ($payload['channel'] ?? 'web')) ?? OrderChannel::Web;

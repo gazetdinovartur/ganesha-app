@@ -53,11 +53,10 @@
 - [x] Telegram webhook (`POST /api/bot/telegram/webhook`)
 - [x] VK callback API (`POST /api/bot/vk/callback`)
 - [x] Общий `CreateOrderDto` → `OrderService`
-- [x] Согласие на обработку ПДн перед первым заказом
 
 ## Этап 7 — повтор и уведомления
 
-- [x] `GET/POST /api/orders/repeat/{repeatToken}`
+- [x] `GET/POST /api/orders/repeat/{repeatToken}` — преfill телефона, имени и точки выдачи; состав заказа клиент выбирает заново
 - [x] Push в TG/VK при `paid`, `ready` (и `completed` для ботов)
 - [x] Уведомление админу в TG при новом заказе
 

@@ -123,14 +123,19 @@ curl -s http://localhost:8080/api/orders/<order_uuid> | jq
 
 ### Повтор заказа
 
+Подставляются только **телефон, имя и точка выдачи** из исходного заказа. Дату, блюда и комментарий клиент указывает заново.
+
 ```bash
-# превью
-curl -s "http://localhost:8080/api/orders/repeat/<repeat_token>?pickup_date=2026-06-15" | jq
+# превью (контакты + точка выдачи)
+curl -s "http://localhost:8080/api/orders/repeat/<repeat_token>" | jq
 
 # создать новый заказ
 curl -s -X POST http://localhost:8080/api/orders/repeat/<repeat_token> \
   -H 'Content-Type: application/json' \
-  -d '{ "pickup_date": "2026-06-15" }' | jq
+  -d '{
+    "pickup_date": "2026-06-15",
+    "items": [{ "menu_day_dish_id": 1, "quantity": 2 }]
+  }' | jq
 ```
 
 ### Оплата (generic webhook)
@@ -193,7 +198,7 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<ngrok-host>/ap
 
 ### Сценарий проверки
 
-1. `/start` → кнопка «✅ Согласен»
+1. `/start` → приветствие
 2. `/menu` → выбор дня → блюда → «Оформить»
 3. Поделиться контактом (если телефона ещё нет)
 4. Получить сообщение с номером заказа и реквизитами
@@ -213,7 +218,7 @@ Callback URL в сообществе VK: `https://<домен>/api/bot/vk/callba
 
 При `type: confirmation` API вернёт строку `VK_CONFIRMATION_SECRET`.
 
-Текстовые команды: `начать`, `согласен`, `меню`, `корзина`, `повтор <token>`.
+Текстовые команды: `начать`, `меню`, `корзина`, `повтор <token>`.
 
 ---
 
@@ -291,7 +296,7 @@ docker compose -f docker-compose.yml exec php bin/console lint:twig templates/
 
 | Симптом | Решение |
 |---|---|
-| `consent_required` | передать `personal_data_consent: true` или пройти согласие в боте |
+| `consent_required` | передать `personal_data_consent: true` (только канал `web`) |
 | `cutoff_passed` | заказ на день D только до 18:00 дня D−1 (Екатеринбург) |
 | Пустое меню | опубликовать день в админке |
 | Webhook 401 | проверить `X-Payment-Token` = `PAYMENT_WEBHOOK_SECRET` |
