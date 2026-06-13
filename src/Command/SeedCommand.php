@@ -11,7 +11,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'app:seed',
-    description: 'Admin, точка выдачи и демо-меню на неделю',
+    description: 'Admin, точка выдачи, демо-меню и ссылка на политику ПДн',
 )]
 final class SeedCommand extends Command
 {
@@ -26,7 +26,7 @@ final class SeedCommand extends Command
             return Command::FAILURE;
         }
 
-        foreach (['app:seed:admin', 'app:seed:pickup-point', 'app:seed:menu'] as $name) {
+        foreach (['app:seed:admin', 'app:seed:pickup-point', 'app:seed:menu', 'app:seed:privacy'] as $name) {
             $code = $application->find($name)->run(new ArrayInput([]), $output);
             if ($code !== Command::SUCCESS) {
                 return $code;

@@ -2,7 +2,7 @@
 
 Онбординг для нового человека в проекте: как поднять окружение, проверить API, ботов и оплату.
 
-Связанные документы: [deploy.md](deploy.md) · [backend.md](backend.md) · [admin.md](admin.md)
+Связанные документы: [go-live.md](go-live.md) · [deploy.md](deploy.md) · [backend.md](backend.md) · [admin.md](admin.md)
 
 ---
 
@@ -260,6 +260,12 @@ docker compose -f docker-compose.yml exec php bin/console doctrine:migrations:mi
 
 # Twig
 docker compose -f docker-compose.yml exec php bin/console lint:twig templates/
+
+# демо-меню на неделю (dev)
+docker compose -f docker-compose.yml exec php bin/console app:seed:menu
+
+# ссылка на политику ПДн в .env.local
+docker compose -f docker-compose.yml exec php bin/console app:seed:privacy
 ```
 
 ---
@@ -287,11 +293,13 @@ docker compose -f docker-compose.yml exec php bin/console lint:twig templates/
 
 \* для тестов оплаты локально — любая строка в `.env.local`, та же в заголовке `X-Payment-Token`.
 
+Полный чеклист заполнения и ручные шаги TG/VK/Сбер: [go-live.md §2](go-live.md#2-чеклист-envlocal-все-переменные).
+
 ---
 
 ## 11. Production
 
-См. [deploy.md](deploy.md) и скрипт [`deploy.sh`](../deploy.sh).
+См. [go-live.md](go-live.md) (чеклист запуска), [deploy.md](deploy.md) и скрипт [`deploy.sh`](../deploy.sh).
 
 Кратко:
 

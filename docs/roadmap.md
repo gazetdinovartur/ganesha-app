@@ -8,11 +8,14 @@
 | **1** | Seed: admin + точка выдачи «Хануман» | ✓ |
 | **2** | Админка: EasyAdmin + menu-week + menu-day + kitchen | ✓ |
 | **3** | Web: календарь, корзина, QR/оплата, статус заказа, «О нас» | ✓ |
+| **3b** | Мультидневная корзина, групповая оплата, polish админки | ✓ |
 | **4** | `OrderService`: создание заказа, cutoff, snapshot блюд | ✓ |
 | **5** | Интеграция платёжного провайдера → webhook (см. [backend.md](backend.md#оплата)) | частично ✓ |
 | **6** | TG + VK боты (дублируют web-flow) | ✓ |
 | **7** | Повтор заказа (`repeatToken`), уведомления | ✓ |
 | **8** | Полировка: cron `complete-pickup-day`, мониторинг | |
+
+**Перед запуском для клиентов:** [go-live.md](go-live.md) — аудит, `.env`, TG/VK, QR Сбера, чеклист.
 
 ---
 
@@ -33,6 +36,8 @@
 - [x] Страница оплаты: QR / реквизиты + `order_uuid` в комментарии к переводу
 - [x] Страница статуса `/order/{uuid}` (polling)
 - [x] «О нас»: адрес, часы, cutoff 18:00
+- [x] Мультидневная корзина, «На всю неделю», групповая оплата
+- [x] Админка: русские статусы заказов, badge, UX списков
 
 ## Этап 4 — OrderService
 
@@ -46,7 +51,7 @@
 - [x] `PaymentService` + `POST /api/payment/webhook`
 - [x] Адаптеры Sber / YooKassa → `POST /api/payment/{provider}/webhook`
 - [x] `NotificationService` при переходе в `paid` (лог; TG/VK — этап 7)
-- [ ] Подключить конкретного провайдера в production (ключи, QR, metadata)
+- [ ] Подключить конкретного провайдера в production (ключи, QR, metadata) — см. [go-live.md §5](go-live.md#5-ручная-настройка-оплата-и-qr-сбер--сбп)
 
 ## Этап 6 — боты
 

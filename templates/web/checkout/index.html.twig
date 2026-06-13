@@ -91,10 +91,8 @@
                                 <div class="form-check site-form-check">
                                     {{ form_widget(form.personalDataConsent) }}
                                     <label class="form-check-label" for="{{ form.personalDataConsent.vars.id }}">
-                                        Согласен(на) на обработку персональных данных
-                                        {% if privacy_policy_url %}
-                                            (<a href="{{ privacy_policy_url }}" target="_blank" rel="noopener">политика</a>)
-                                        {% endif %}
+                                        Согласен(на) на обработку персональных данных —
+                                        <a href="{{ privacy_policy_url }}" target="_blank" rel="noopener">политика конфиденциальности</a>
                                     </label>
                                 </div>
                                 {{ form_errors(form.personalDataConsent) }}

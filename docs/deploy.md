@@ -1,6 +1,8 @@
 # Deploy и локальная разработка
 
-Полное руководство для разработчика (API, боты, тесты): **[development.md](development.md)**.
+Чеклист запуска (`.env`, TG/VK, QR Сбера): **[go-live.md](go-live.md)**.
+
+Полное руководство для разработчика: **[development.md](development.md)**.
 
 ---
 

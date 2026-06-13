@@ -4,6 +4,7 @@ namespace App\Controller\Web;
 
 use App\Entity\PickupPoint;
 use App\Repository\PickupPointRepository;
+use App\Service\PrivacyPolicyUrlProvider;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,8 +16,7 @@ final class AboutController extends AbstractController
         private readonly PickupPointRepository $pickupPointRepository,
         #[Autowire(param: 'app.order_cutoff_hour')]
         private readonly int $cutoffHour,
-        #[Autowire(param: 'app.privacy_policy_url')]
-        private readonly string $privacyPolicyUrl,
+        private readonly PrivacyPolicyUrlProvider $privacyPolicyUrlProvider,
     ) {
     }
 
@@ -29,7 +29,7 @@ final class AboutController extends AbstractController
         return $this->render('web/about/index.html.twig', [
             'pickup_points' => $pickupPoints,
             'cutoff_hour' => $this->cutoffHour,
-            'privacy_policy_url' => $this->privacyPolicyUrl,
+            'privacy_policy_url' => $this->privacyPolicyUrlProvider->getUrl(),
         ]);
     }
 }

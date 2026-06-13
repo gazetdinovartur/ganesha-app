@@ -8,15 +8,13 @@ use App\Enum\OrderChannel;
 use App\Exception\OrderCreationException;
 use App\Form\Web\CheckoutFormType;
 use App\Repository\PickupPointRepository;
-use App\Service\OrderApiPresenter;
 use App\Service\OrderService;
+use App\Service\PrivacyPolicyUrlProvider;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Uid\Uuid;
 
 final class CheckoutController extends AbstractController
 {
@@ -25,8 +23,7 @@ final class CheckoutController extends AbstractController
     public function __construct(
         private readonly OrderService $orderService,
         private readonly PickupPointRepository $pickupPointRepository,
-        #[Autowire(param: 'app.privacy_policy_url')]
-        private readonly string $privacyPolicyUrl,
+        private readonly PrivacyPolicyUrlProvider $privacyPolicyUrlProvider,
     ) {
     }
 
@@ -102,7 +99,7 @@ final class CheckoutController extends AbstractController
                 return $this->render('web/checkout/index.html.twig', [
                     'form' => $form,
                     'cart' => $cart,
-                    'privacy_policy_url' => $this->privacyPolicyUrl,
+                    'privacy_policy_url' => $this->privacyPolicyUrlProvider->getUrl(),
                 ]);
             }
 
@@ -127,7 +124,7 @@ final class CheckoutController extends AbstractController
         return $this->render('web/checkout/index.html.twig', [
             'form' => $form,
             'cart' => $cart,
-            'privacy_policy_url' => $this->privacyPolicyUrl,
+            'privacy_policy_url' => $this->privacyPolicyUrlProvider->getUrl(),
         ]);
     }
 
