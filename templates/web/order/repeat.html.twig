@@ -1,0 +1,17 @@
+{% extends 'web/home/index.html.twig' %}
+
+{% block title %}Повтор заказа · Ganesha{% endblock %}
+
+{% block body %}
+    <div class="container pt-3">
+        <div class="alert alert-success border-0 rounded-3">
+            Повтор заказа №{{ preview.source_human_number }}.
+            {% if preview.customer.name %}
+                {{ preview.customer.name }},
+            {% endif %}
+            телефон {{ preview.customer.phone }} подставится при оформлении.
+        </div>
+    </div>
+
+    {{ parent() }}
+{% endblock %}

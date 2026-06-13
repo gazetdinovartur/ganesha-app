@@ -74,7 +74,7 @@ final class BotOrderFlowServiceTest extends TestCase
             $menuCatalogService,
             $this->orderService,
             $this->createMock(OrderRepeatService::class),
-            new OrderApiPresenter('', '', 'http://localhost'),
+            new OrderApiPresenter('', '', 'http://localhost', false),
             $this->telegramApiClient,
             $this->createMock(VkApiClient::class),
             $entityManager,

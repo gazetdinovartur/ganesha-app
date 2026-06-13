@@ -1,0 +1,50 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Оплата заказа №{{ order.humanNumber }} · Ganesha{% endblock %}
+
+{% block body %}
+    <div class="container py-4">
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-6">
+                <div class="site-panel text-center">
+                    <div class="site-status-badge mb-3">Ожидает оплаты</div>
+                    <h1 class="h3 mb-1">Заказ №{{ order.humanNumber }}</h1>
+                    <p class="text-muted mb-4">Самовывоз {{ day_label_ru(order.pickupDate) }} · {{ order.totalAmount|money_rub }}</p>
+
+                    <div class="text-start mb-4">
+                        {% include 'web/_partials/payment_instructions.html.twig' with {
+                            payment: presented.payment|default(null),
+                            amount: order.totalAmount,
+                            payment_intro: 'Отсканируйте QR или переведите ' ~ (order.totalAmount|money_rub) ~ ' по реквизитам.',
+                            comment_label: 'код заказа',
+                            comment_value: order.uuid ~ '',
+                            copy_field_id: 'pay-card',
+                            comment_field_id: 'pay-uuid',
+                        } %}
+                    </div>
+
+                    <p class="small text-muted mb-3" id="pay-status-hint">Проверяем оплату…</p>
+                    <a href="{{ path('web_order_status', { uuid: order.uuid }) }}" class="btn btn-primary site-btn-primary">Страница заказа</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        window.ganeshaClearCartDate({{ order.pickupDate.format('Y-m-d')|json_encode|raw }});
+
+        ganeshaPollOrder({{ path('api_orders_show', { uuid: order.uuid })|json_encode|raw }}, (data) => {
+            const hint = document.getElementById('pay-status-hint');
+            if (data.status === 'paid') {
+                hint.textContent = 'Оплата получена! Перенаправляем…';
+                window.location.href = {{ path('web_order_status', { uuid: order.uuid })|json_encode|raw }};
+            } else if (data.status === 'cancelled') {
+                hint.textContent = 'Заказ отменён.';
+            } else {
+                hint.textContent = 'Ожидаем оплату. Страница обновится автоматически.';
+            }
+        });
+    </script>
+{% endblock %}

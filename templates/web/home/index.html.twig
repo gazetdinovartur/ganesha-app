@@ -1,0 +1,111 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Меню · Ganesha{% endblock %}
+
+{% block head %}
+    <script>window.__GANESHA_MENU_DAYS__ = {{ menu.days|json_encode|raw }};</script>
+{% endblock %}
+
+{% block body %}
+    <div class="container"
+         x-data="ganeshaMenu(window.__GANESHA_MENU_DAYS__ || [])">
+
+        <section class="site-hero">
+            <div class="site-hero__row">
+                <div>
+                    <h1>Меню на неделю</h1>
+                    <p>Выберите день, добавьте блюда в корзину и оформите предзаказ. Можно собрать корзину сразу на несколько дней. Приём заказов закрывается в {{ menu.cutoff_hour }}:00 накануне дня выдачи.</p>
+                </div>
+                {% if menu.days is not empty %}
+                    <button type="button"
+                            class="btn btn-outline-primary site-btn-outline site-week-btn"
+                            @click="addWeekMenu()"
+                            x-show="orderableDaysCount() > 0"
+                            x-cloak>
+                        Хочу заказать на всю неделю
+                    </button>
+                {% endif %}
+            </div>
+        </section>
+
+        {% if menu.days is empty %}
+            <div class="site-empty site-panel">
+                <p class="mb-2">Меню пока не опубликовано.</p>
+                <p class="small mb-0">Загляните позже или напишите нам в Telegram / VK.</p>
+            </div>
+        {% else %}
+            <div class="site-chip-row" role="tablist" aria-label="Дни меню">
+                {% for day in menu.days %}
+                    <button type="button"
+                            class="site-day-chip{% if not day.orderable %} is-closed{% endif %}"
+                            :class="{ 'is-active': activeDate === '{{ day.date }}' }"
+                            @click="selectDay('{{ day.date }}')"
+                            role="tab"
+                            :aria-selected="activeDate === '{{ day.date }}'">
+                        {{ weekday_ru(day.date)|capitalize }}, {{ day.date|slice(8, 2) }}.{{ day.date|slice(5, 2) }}
+                        {% if day.is_today %}
+                            <span class="site-day-chip__sub">сегодня</span>
+                        {% endif %}
+                        {% if not day.orderable %}
+                            <span class="site-day-chip__sub">закрыто</span>
+                        {% endif %}
+                    </button>
+                {% endfor %}
+            </div>
+
+            {% for day in menu.days %}
+                <section x-show="activeDate === '{{ day.date }}'" x-cloak>
+                    {% if day.note %}
+                        <div class="site-menu-note">{{ day.note }}</div>
+                    {% endif %}
+
+                    {% if not day.orderable %}
+                        <div class="alert alert-warning border-0 rounded-3">
+                            {{ day.order_block_reason }}
+                        </div>
+                    {% endif %}
+
+                    <div class="site-dish-grid">
+                        {% for dish in day.dishes %}
+                            <article class="site-dish-card">
+                                <div class="site-dish-card__media">
+                                    {% if dish.photo_path %}
+                                        <img src="{{ dish.photo_path }}" alt="{{ dish.name }}" loading="lazy">
+                                    {% else %}
+                                        🥗
+                                    {% endif %}
+                                </div>
+                                <div class="site-dish-card__body">
+                                    {% if dish.category %}
+                                        <div class="site-dish-card__meta">{{ dish.category }}{% if dish.weight_g %} · {{ dish.weight_g }} г{% endif %}</div>
+                                    {% endif %}
+                                    <h2 class="site-dish-card__title">{{ dish.name }}</h2>
+                                    {% if dish.short_description %}
+                                        <p class="site-dish-card__desc">{{ dish.short_description }}</p>
+                                    {% endif %}
+                                    <div class="site-dish-card__footer">
+                                        <span class="site-price">{{ dish.price|money_rub }}</span>
+                                        {% if day.orderable %}
+                                            <div class="site-qty">
+                                                <button type="button"
+                                                        class="site-qty__btn"
+                                                        @click="decrementDish({{ dish.menu_day_dish_id }})"
+                                                        :disabled="quantityFor({{ dish.menu_day_dish_id }}) === 0"
+                                                        aria-label="Уменьшить">−</button>
+                                                <span class="site-qty__value" x-text="quantityFor({{ dish.menu_day_dish_id }})"></span>
+                                                <button type="button"
+                                                        class="site-qty__btn"
+                                                        @click="addDishById({{ dish.menu_day_dish_id }})"
+                                                        aria-label="Добавить">+</button>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock %}

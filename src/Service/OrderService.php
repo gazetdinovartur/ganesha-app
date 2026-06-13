@@ -15,6 +15,7 @@ use App\Repository\MenuDayDishRepository;
 use App\Repository\OrderRepository;
 use App\Repository\PickupPointRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 class OrderService
 {
@@ -31,6 +32,36 @@ class OrderService
 
     public function create(CreateOrderDto $dto): Order
     {
+        $orders = $this->createBatch([$dto]);
+
+        return $orders[0];
+    }
+
+    /**
+     * @param list<CreateOrderDto> $dtos
+     *
+     * @return list<Order>
+     */
+    public function createBatch(array $dtos): array
+    {
+        if ($dtos === []) {
+            throw new OrderCreationException('Добавьте хотя бы одно блюдо.', 422, 'items_required');
+        }
+
+        $paymentGroupUuid = \count($dtos) > 1 ? Uuid::v7() : null;
+
+        return $this->entityManager->wrapInTransaction(function () use ($dtos, $paymentGroupUuid): array {
+            $orders = [];
+            foreach ($dtos as $dto) {
+                $orders[] = $this->createOrder($dto, $paymentGroupUuid);
+            }
+
+            return $orders;
+        });
+    }
+
+    private function createOrder(CreateOrderDto $dto, ?Uuid $paymentGroupUuid): Order
+    {
         if ($dto->items === []) {
             throw new OrderCreationException('Добавьте хотя бы одно блюдо.', 422, 'items_required');
         }
@@ -42,62 +73,63 @@ class OrderService
         $mergedItems = $this->mergeItems($dto->items);
         $menuDayDishes = $this->resolveMenuDayDishes($mergedItems, $pickupDate);
 
-        return $this->entityManager->wrapInTransaction(function () use ($dto, $pickupDate, $pickupPoint, $mergedItems, $menuDayDishes): Order {
-            if ($dto->channel === OrderChannel::Web && !$dto->personalDataConsent) {
-                throw new OrderCreationException(
-                    'Необходимо согласие на обработку персональных данных.',
-                    422,
-                    'consent_required',
-                );
-            }
-
-            $customer = $this->customerService->findOrCreate(
-                $dto->phone,
-                $dto->name,
-                requireConsent: $dto->channel === OrderChannel::Web && $dto->personalDataConsent,
+        if ($dto->channel === OrderChannel::Web && !$dto->personalDataConsent) {
+            throw new OrderCreationException(
+                'Необходимо согласие на обработку персональных данных.',
+                422,
+                'consent_required',
             );
+        }
 
-            if ($dto->channel === OrderChannel::Web && $dto->personalDataConsent && !$customer->hasPersonalDataConsent()) {
-                $this->customerService->grantConsent($customer);
+        // Согласие для web проверяется выше; grantConsent — ниже. requireConsent=false,
+        // иначе новый клиент с галочкой не создаётся.
+        $customer = $this->customerService->findOrCreate(
+            $dto->phone,
+            $dto->name,
+            requireConsent: false,
+        );
+
+        if ($dto->channel === OrderChannel::Web && $dto->personalDataConsent && !$customer->hasPersonalDataConsent()) {
+            $this->customerService->grantConsent($customer);
+        }
+
+        $order = (new Order())
+            ->setHumanNumber($this->orderRepository->getNextHumanNumber())
+            ->setCustomer($customer)
+            ->setPickupDate($pickupDate)
+            ->setPickupPoint($pickupPoint)
+            ->setChannel($dto->channel)
+            ->setStatus(OrderStatus::PendingPayment)
+            ->setComment($dto->comment !== null && trim($dto->comment) !== '' ? trim($dto->comment) : null)
+            ->setPaymentGroupUuid($paymentGroupUuid);
+
+        foreach ($mergedItems as $itemDto) {
+            $menuDayDish = $menuDayDishes[$itemDto->menuDayDishId];
+            $dish = $menuDayDish->getDish();
+            if ($dish === null) {
+                throw new OrderCreationException('Блюдо не найдено.', 422, 'dish_not_found');
             }
 
-            $order = (new Order())
-                ->setHumanNumber($this->orderRepository->getNextHumanNumber())
-                ->setCustomer($customer)
-                ->setPickupDate($pickupDate)
-                ->setPickupPoint($pickupPoint)
-                ->setChannel($dto->channel)
-                ->setStatus(OrderStatus::PendingPayment)
-                ->setComment($dto->comment !== null && trim($dto->comment) !== '' ? trim($dto->comment) : null);
+            $orderItem = (new OrderItem())
+                ->setDish($dish)
+                ->setQuantity($itemDto->quantity)
+                ->setDishSnapshot([
+                    'dish_id' => $dish->getId(),
+                    'name' => $dish->getName(),
+                    'unit_price' => $menuDayDish->getEffectivePrice(),
+                ]);
 
-            foreach ($mergedItems as $itemDto) {
-                $menuDayDish = $menuDayDishes[$itemDto->menuDayDishId];
-                $dish = $menuDayDish->getDish();
-                if ($dish === null) {
-                    throw new OrderCreationException('Блюдо не найдено.', 422, 'dish_not_found');
-                }
+            $order->addItem($orderItem);
+            $menuDayDish->incrementOrderedPortions($itemDto->quantity);
+        }
 
-                $orderItem = (new OrderItem())
-                    ->setDish($dish)
-                    ->setQuantity($itemDto->quantity)
-                    ->setDishSnapshot([
-                        'dish_id' => $dish->getId(),
-                        'name' => $dish->getName(),
-                        'unit_price' => $menuDayDish->getEffectivePrice(),
-                    ]);
+        $order->recalculateTotal();
+        $this->entityManager->persist($order);
+        $this->entityManager->flush();
 
-                $order->addItem($orderItem);
-                $menuDayDish->incrementOrderedPortions($itemDto->quantity);
-            }
+        $this->notificationService->newOrderForAdmin($order);
 
-            $order->recalculateTotal();
-            $this->entityManager->persist($order);
-            $this->entityManager->flush();
-
-            $this->notificationService->newOrderForAdmin($order);
-
-            return $order;
-        });
+        return $order;
     }
 
     public function getByUuid(string $uuid): ?Order

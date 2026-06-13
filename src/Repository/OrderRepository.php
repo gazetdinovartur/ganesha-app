@@ -48,6 +48,22 @@ class OrderRepository extends ServiceEntityRepository
     /**
      * @return list<Order>
      */
+    public function findByPaymentGroupUuid(Uuid $paymentGroupUuid): array
+    {
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.customer', 'c')->addSelect('c')
+            ->leftJoin('o.items', 'i')->addSelect('i')
+            ->andWhere('o.paymentGroupUuid = :group')
+            ->setParameter('group', $paymentGroupUuid, 'uuid')
+            ->orderBy('o.pickupDate', 'ASC')
+            ->addOrderBy('o.humanNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return list<Order>
+     */
     public function findByPickupDate(\DateTimeImmutable $date): array
     {
         return $this->createQueryBuilder('o')

@@ -1,0 +1,66 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Оплата заказов · Ganesha{% endblock %}
+
+{% block body %}
+    <div class="container py-4">
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-7">
+                <div class="site-panel text-center">
+                    <div class="site-status-badge mb-3">Ожидает оплаты</div>
+                    <h1 class="h3 mb-1">{{ orders|length }} {{ plural_ru(orders|length, 'заказ', 'заказа', 'заказов') }} на неделю</h1>
+                    <p class="text-muted mb-4">Общая сумма · {{ total_amount|money_rub }}</p>
+
+                    <div class="text-start mb-4">
+                        {% include 'web/_partials/payment_instructions.html.twig' with {
+                            payment: payment,
+                            amount: total_amount,
+                            payment_intro: 'Один перевод на ' ~ (total_amount|money_rub) ~ ' — за все дни сразу. Отсканируйте QR или переведите по реквизитам.',
+                            comment_label: 'код группы',
+                            comment_value: payment_group_uuid,
+                            copy_field_id: 'pay-card',
+                            comment_field_id: 'pay-group-uuid',
+                            payment_outro: 'После поступления оплаты все заказы обновятся автоматически.',
+                        } %}
+                    </div>
+
+                    <div class="site-checkout-day text-start mb-4">
+                        <p class="small text-muted mb-2">Состав заказа</p>
+                        {% for order in orders %}
+                            <div class="site-group-order-row">
+                                <div>
+                                    <strong>№{{ order.humanNumber }}</strong>
+                                    <span class="text-muted"> · {{ day_label_ru(order.pickupDate) }}</span>
+                                </div>
+                                <strong>{{ order.totalAmount|money_rub }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <p class="small text-muted mb-3" id="pay-status-hint">Проверяем оплату…</p>
+                    <a href="{{ path('web_order_group_status', { paymentGroupUuid: payment_group_uuid }) }}" class="btn btn-outline-secondary site-btn-outline">
+                        Статус заказов
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        window.ganeshaClearCartDates({{ orders|map(o => o.pickupDate.format('Y-m-d'))|json_encode|raw }});
+
+        ganeshaPollOrder({{ poll_url|json_encode|raw }}, (data) => {
+            const hint = document.getElementById('pay-status-hint');
+            if (data.status === 'paid') {
+                hint.textContent = 'Оплата получена! Перенаправляем…';
+                window.location.href = {{ path('web_order_group_status', { paymentGroupUuid: payment_group_uuid })|json_encode|raw }};
+            } else if (data.status === 'cancelled') {
+                hint.textContent = 'Заказ отменён.';
+            } else {
+                hint.textContent = 'Ожидаем оплату. Страница обновится автоматически.';
+            }
+        });
+    </script>
+{% endblock %}

@@ -3,6 +3,7 @@
 namespace App\Controller\Admin\Crud;
 
 use App\Entity\Order;
+use App\Enum\OrderChannel;
 use App\Enum\OrderStatus;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
@@ -15,6 +16,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends AbstractCrudController<Order> */
 final class OrderCrudController extends AbstractCrudController
@@ -55,7 +57,14 @@ final class OrderCrudController extends AbstractCrudController
             ));
         yield IntegerField::new('totalAmount', 'Сумма')
             ->formatValue(fn (?int $v): string => $v === null ? '—' : number_format($v / 100, 2, ',', ' ').' ₽');
-        yield TextField::new('channel', 'Канал');
+        yield ChoiceField::new('channel', 'Канал')
+            ->setChoices(array_combine(
+                array_map(static fn (OrderChannel $c) => $c->label(), OrderChannel::cases()),
+                OrderChannel::cases(),
+            ));
+        yield TextField::new('paymentGroupUuid', 'Группа оплаты')
+            ->formatValue(static fn (?Uuid $uuid): string => $uuid === null ? '—' : (string) $uuid)
+            ->hideOnIndex();
         yield DateTimeField::new('paidAt', 'Оплачен')->hideOnIndex();
         yield TextareaField::new('comment', 'Комментарий')->hideOnIndex();
         yield DateTimeField::new('createdAt', 'Создан')->hideOnIndex();

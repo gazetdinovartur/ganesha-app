@@ -1,0 +1,48 @@
+{% use "bootstrap_5_layout.html.twig" %}
+
+{% block form_row %}
+    {% if compound %}
+        {{ block('form_widget') }}
+    {% else %}
+        <div class="mb-3{% if errors|length > 0 %} has-error{% endif %}">
+            {{ form_label(form) }}
+            {{ form_widget(form) }}
+            {{ form_help(form) }}
+            {{ form_errors(form) }}
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block form_label %}
+    {% if label is not same as(false) %}
+        {% set label_attr = label_attr|merge({ class: (label_attr.class|default('') ~ ' form-label')|trim }) %}
+        {{ parent() }}
+    {% endif %}
+{% endblock %}
+
+{% block form_widget_simple %}
+    {% set attr = attr|merge({ class: (attr.class|default('') ~ ' form-control')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{% block textarea_widget %}
+    {% set attr = attr|merge({ class: (attr.class|default('') ~ ' form-control')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{% block choice_widget_collapsed %}
+    {% set attr = attr|merge({ class: (attr.class|default('') ~ ' form-select')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{% block checkbox_widget %}
+    {% set attr = attr|merge({ class: (attr.class|default('') ~ ' form-check-input')|trim }) %}
+    {{ parent() }}
+{% endblock %}
+
+{% block checkbox_radio_label %}
+    {% if widget is defined %}
+        {% set label_attr = label_attr|merge({ class: (label_attr.class|default('') ~ ' form-check-label')|trim }) %}
+    {% endif %}
+    {{ parent() }}
+{% endblock %}

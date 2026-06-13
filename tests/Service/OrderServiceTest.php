@@ -25,14 +25,16 @@ final class OrderServiceTest extends TestCase
 {
     public function testWebOrderRequiresConsent(): void
     {
-        $service = $this->createServiceWithMenu();
+        $timezone = new \DateTimeZone('Asia/Yekaterinburg');
+        $pickupDate = (new \DateTimeImmutable('today', $timezone))->modify('+2 days');
+        $service = $this->createServiceWithMenu($pickupDate);
 
         $this->expectException(OrderCreationException::class);
 
         try {
             $service->create(new CreateOrderDto(
                 phone: '+79123456789',
-                pickupDate: new \DateTimeImmutable('2026-06-14'),
+                pickupDate: $pickupDate,
                 items: [new CreateOrderItemDto(1, 1)],
                 channel: OrderChannel::Web,
                 personalDataConsent: false,
@@ -46,11 +48,13 @@ final class OrderServiceTest extends TestCase
 
     public function testTelegramOrderDoesNotRequireConsent(): void
     {
-        $service = $this->createServiceWithMenu();
+        $timezone = new \DateTimeZone('Asia/Yekaterinburg');
+        $pickupDate = (new \DateTimeImmutable('today', $timezone))->modify('+2 days');
+        $service = $this->createServiceWithMenu($pickupDate);
 
         $order = $service->create(new CreateOrderDto(
             phone: '+79123456789',
-            pickupDate: new \DateTimeImmutable('2026-06-14'),
+            pickupDate: $pickupDate,
             items: [new CreateOrderItemDto(1, 1)],
             name: 'Анна',
             channel: OrderChannel::Telegram,
@@ -61,8 +65,11 @@ final class OrderServiceTest extends TestCase
         self::assertSame(OrderChannel::Telegram, $order->getChannel());
     }
 
-    private function createServiceWithMenu(): OrderService
+    private function createServiceWithMenu(?\DateTimeImmutable $pickupDate = null): OrderService
     {
+        $timezone = new \DateTimeZone('Asia/Yekaterinburg');
+        $pickupDate ??= (new \DateTimeImmutable('today', $timezone))->modify('+2 days');
+
         $pickupPoint = (new PickupPoint())
             ->setName('Хануман')
             ->setAddress('Щорса 37А')
@@ -73,7 +80,7 @@ final class OrderServiceTest extends TestCase
         $pickupPointRepository->method('findFirstActive')->willReturn($pickupPoint);
 
         $menuDay = $this->createMock(MenuDay::class);
-        $menuDay->method('getDate')->willReturn(new \DateTimeImmutable('2026-06-14'));
+        $menuDay->method('getDate')->willReturn($pickupDate);
         $menuDay->method('isPublished')->willReturn(true);
 
         $dish = $this->createMock(Dish::class);

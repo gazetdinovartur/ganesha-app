@@ -46,6 +46,11 @@ final class PaymentService
             throw new PaymentConfirmationException('Заказ отменён, оплату принять нельзя.', 409, 'order_cancelled');
         }
 
+        $paymentGroupUuid = $order->getPaymentGroupUuid();
+        if ($paymentGroupUuid !== null) {
+            return $this->confirmPaymentGroup($paymentGroupUuid, $amountKopecks, $externalId);
+        }
+
         if ($amountKopecks !== null && $amountKopecks !== $order->getTotalAmount()) {
             throw new PaymentConfirmationException('Сумма платежа не совпадает с заказом.', 422, 'amount_mismatch');
         }
@@ -54,5 +59,51 @@ final class PaymentService
         $this->notificationService->orderPaid($order, $externalId);
 
         return $order;
+    }
+
+    /**
+     * @throws PaymentConfirmationException
+     */
+    private function confirmPaymentGroup(Uuid $paymentGroupUuid, ?int $amountKopecks, ?string $externalId): Order
+    {
+        $orders = $this->orderRepository->findByPaymentGroupUuid($paymentGroupUuid);
+        if ($orders === []) {
+            throw new PaymentConfirmationException('Группа заказов не найдена.', 404, 'order_group_not_found');
+        }
+
+        $pendingOrders = array_values(array_filter(
+            $orders,
+            static fn (Order $order): bool => $order->getStatus() !== OrderStatus::Cancelled,
+        ));
+
+        if ($pendingOrders === []) {
+            throw new PaymentConfirmationException('Заказ отменён, оплату принять нельзя.', 409, 'order_cancelled');
+        }
+
+        $expectedTotal = 0;
+        foreach ($pendingOrders as $groupOrder) {
+            if ($groupOrder->getStatus() === OrderStatus::PendingPayment) {
+                $expectedTotal += $groupOrder->getTotalAmount();
+            }
+        }
+
+        if ($expectedTotal === 0) {
+            return $pendingOrders[0];
+        }
+
+        if ($amountKopecks !== null && $amountKopecks !== $expectedTotal) {
+            throw new PaymentConfirmationException('Сумма платежа не совпадает с заказом.', 422, 'amount_mismatch');
+        }
+
+        foreach ($pendingOrders as $groupOrder) {
+            if ($groupOrder->getStatus() !== OrderStatus::PendingPayment) {
+                continue;
+            }
+
+            $this->orderStatusService->markAsPaid($groupOrder);
+            $this->notificationService->orderPaid($groupOrder, $externalId);
+        }
+
+        return $pendingOrders[0];
     }
 }

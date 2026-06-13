@@ -14,7 +14,21 @@ final class OrderApiPresenter
         private readonly string $paymentCard,
         #[Autowire(param: 'app.public_base_url')]
         private readonly string $publicBaseUrl,
+        #[Autowire(param: 'kernel.debug')]
+        private readonly bool $debug,
     ) {
+    }
+
+    /**
+     * @return array{qr_url: ?string, card: ?string, comment_hint: ?string}
+     */
+    public function paymentBlock(?string $commentHint = null): array
+    {
+        return [
+            'qr_url' => $this->resolveQrUrl(),
+            'card' => $this->resolveCard(),
+            'comment_hint' => $commentHint,
+        ];
     }
 
     /**
@@ -56,14 +70,36 @@ final class OrderApiPresenter
         ];
 
         if ($includePayment && $order->getStatus()->value === 'pending_payment') {
-            $data['payment'] = [
-                'qr_url' => $this->paymentQrUrl !== '' ? $this->paymentQrUrl : null,
-                'card' => $this->paymentCard !== '' ? $this->paymentCard : null,
-                'comment_hint' => (string) $order->getUuid(),
-            ];
+            $data['payment'] = $this->paymentBlock((string) $order->getUuid());
         }
 
         return $data;
+    }
+
+    private function resolveQrUrl(): ?string
+    {
+        if ($this->paymentQrUrl !== '') {
+            return $this->paymentQrUrl;
+        }
+
+        if ($this->debug) {
+            return 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=ganesha-dev-pay';
+        }
+
+        return null;
+    }
+
+    private function resolveCard(): ?string
+    {
+        if ($this->paymentCard !== '') {
+            return $this->paymentCard;
+        }
+
+        if ($this->debug) {
+            return '2200 1234 5678 9012 · Ganesha (демо)';
+        }
+
+        return null;
     }
 
     private function repeatUrl(string $repeatToken): string

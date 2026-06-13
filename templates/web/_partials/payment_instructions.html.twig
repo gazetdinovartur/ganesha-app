@@ -1,0 +1,34 @@
+{# @var payment array{qr_url: ?string, card: ?string, comment_hint: ?string}|null #}
+{% set payment = payment|default(null) %}
+
+{% if payment and payment.qr_url %}
+    <div class="site-pay-qr mb-4">
+        <img src="{{ payment.qr_url }}" alt="QR-код для оплаты">
+    </div>
+{% endif %}
+
+<ol class="site-steps text-start mb-0">
+    <li>{{ payment_intro|default('Переведите ' ~ (amount|money_rub) ~ ' по реквизитам ниже.') }}</li>
+
+    {% if payment and payment.card %}
+        <li>
+            Карта / СБП:
+            <div class="site-copy-field mt-2">
+                <input type="text" class="form-control" value="{{ payment.card }}" readonly id="{{ copy_field_id|default('pay-card') }}">
+                <button type="button" class="btn btn-outline-primary" onclick="ganeshaCopy(document.getElementById('{{ copy_field_id|default('pay-card') }}').value, this)">Копировать</button>
+            </div>
+        </li>
+    {% endif %}
+
+    {% if comment_value %}
+        <li>
+            В комментарии к переводу укажите {{ comment_label|default('код') }}:
+            <div class="site-copy-field mt-2">
+                <input type="text" class="form-control" value="{{ comment_value }}" readonly id="{{ comment_field_id|default('pay-comment') }}">
+                <button type="button" class="btn btn-outline-primary" onclick="ganeshaCopy(document.getElementById('{{ comment_field_id|default('pay-comment') }}').value, this)">Копировать</button>
+            </div>
+        </li>
+    {% endif %}
+
+    <li>{{ payment_outro|default('После поступления оплаты статус обновится автоматически.') }}</li>
+</ol>

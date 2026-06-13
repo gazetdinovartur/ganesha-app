@@ -26,6 +26,9 @@ class Order
     #[ORM\Column(type: 'uuid')]
     private Uuid $uuid;
 
+    #[ORM\Column(type: 'uuid', nullable: true)]
+    private ?Uuid $paymentGroupUuid = null;
+
     #[ORM\Column(name: 'human_number')]
     private int $humanNumber = 0;
 
@@ -86,6 +89,18 @@ class Order
     public function getUuid(): Uuid
     {
         return $this->uuid;
+    }
+
+    public function getPaymentGroupUuid(): ?Uuid
+    {
+        return $this->paymentGroupUuid;
+    }
+
+    public function setPaymentGroupUuid(?Uuid $paymentGroupUuid): static
+    {
+        $this->paymentGroupUuid = $paymentGroupUuid;
+
+        return $this;
     }
 
     public function getHumanNumber(): int

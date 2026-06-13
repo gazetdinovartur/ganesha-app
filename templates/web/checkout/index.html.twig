@@ -1,0 +1,124 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Оформление заказа · Ganesha{% endblock %}
+
+{% block body %}
+    {% set cart_total = 0 %}
+    {% for group in cart.groups %}
+        {% for item in group.items %}
+            {% set cart_total = cart_total + (item.price * item.quantity) %}
+        {% endfor %}
+    {% endfor %}
+
+    <div class="container py-4 py-lg-5">
+        <div class="row g-4 g-lg-5 justify-content-center">
+            <div class="col-lg-5">
+                <div class="site-panel site-checkout-summary h-100">
+                    <p class="site-checkout-summary__eyebrow mb-2">Ваш заказ</p>
+                    <h1 class="h3 mb-1">
+                        {% set day_count = cart.groups|length %}
+                        {% if day_count == 1 %}
+                            Самовывоз
+                        {% else %}
+                            {{ day_count }} {{ plural_ru(day_count, 'день', 'дня', 'дней') }} самовывоза
+                        {% endif %}
+                    </h1>
+
+                    {% for group in cart.groups %}
+                        <section class="site-checkout-day{% if not loop.last %} mb-4{% endif %}">
+                            <p class="site-checkout-summary__date mb-3">{{ day_label_ru(group.pickup_date) }}</p>
+
+                            <ul class="site-checkout-list mb-0">
+                                {% for item in group.items %}
+                                    <li>
+                                        <span class="site-checkout-list__name">{{ item.name }} × {{ item.quantity }}</span>
+                                        <strong>{{ (item.price * item.quantity)|money_rub }}</strong>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </section>
+                    {% endfor %}
+
+                    <div class="site-checkout-total d-flex justify-content-between align-items-center mt-4">
+                        <span>Итого</span>
+                        <strong class="site-checkout-total__amount">{{ cart_total|money_rub }}</strong>
+                    </div>
+
+                    {% if cart.groups|length > 1 %}
+                        {% set order_count = cart.groups|length %}
+                        <p class="site-checkout-summary__hint small text-muted mt-4 mb-0">
+                            Будет создано {{ order_count }} {{ plural_ru(order_count, 'заказ', 'заказа', 'заказов') }} — по одному на каждый день. Оплата одним переводом на общую сумму.
+                        </p>
+                    {% else %}
+                        <p class="site-checkout-summary__hint small text-muted mt-4 mb-0">
+                            После подтверждения вы перейдёте к оплате. Корзина сохранится, если вернётесь к меню.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="site-panel">
+                    <h2 class="h4 mb-1">Контактные данные</h2>
+                    <p class="text-muted mb-4">Телефон обязателен — напишем, если что-то уточнить.</p>
+
+                    {% form_theme form 'form/site_bootstrap.html.twig' %}
+
+                    {{ form_start(form, { attr: { class: 'site-form site-form--checkout' } }) }}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form_row(form.phone, {
+                                    label: 'Телефон *',
+                                    attr: { class: 'form-control form-control-lg', placeholder: '+7 912 345-67-89' },
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.name, {
+                                    attr: { class: 'form-control form-control-lg', placeholder: 'Как к вам обращаться' },
+                                }) }}
+                            </div>
+                            <div class="col-12">
+                                {{ form_row(form.pickupPointId, {
+                                    attr: { class: 'form-select form-select-lg' },
+                                }) }}
+                            </div>
+                            <div class="col-12">
+                                {{ form_row(form.comment, {
+                                    attr: { class: 'form-control', rows: 3, placeholder: 'Например: без лука' },
+                                }) }}
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check site-form-check">
+                                    {{ form_widget(form.personalDataConsent) }}
+                                    <label class="form-check-label" for="{{ form.personalDataConsent.vars.id }}">
+                                        Согласен(на) на обработку персональных данных
+                                        {% if privacy_policy_url %}
+                                            (<a href="{{ privacy_policy_url }}" target="_blank" rel="noopener">политика</a>)
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                {{ form_errors(form.personalDataConsent) }}
+                            </div>
+                        </div>
+
+                        {{ form_rest(form) }}
+
+                        <div class="site-form-actions">
+                            <button type="submit" class="btn btn-primary site-btn-primary">
+                                {% if cart.groups|length > 1 %}
+                                    {% set order_count = cart.groups|length %}
+                                    Подтвердить {{ order_count }} {{ plural_ru(order_count, 'заказ', 'заказа', 'заказов') }}
+                                {% else %}
+                                    Подтвердить заказ
+                                {% endif %}
+                            </button>
+                            <a href="{{ path('web_home') }}" class="btn btn-outline-secondary site-btn-outline">
+                                Вернуться к меню
+                            </a>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

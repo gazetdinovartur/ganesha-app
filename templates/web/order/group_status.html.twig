@@ -1,0 +1,75 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Заказы на неделю · Ganesha{% endblock %}
+
+{% block body %}
+    <div class="container py-4">
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-7">
+                <div class="site-panel">
+                    <h1 class="h3 mb-1">{{ orders|length }} {{ plural_ru(orders|length, 'заказ', 'заказа', 'заказов') }} на неделю</h1>
+                    <p class="text-muted mb-4">Общая сумма · {{ total_amount|money_rub }}</p>
+
+                    {% if pending_count > 0 %}
+                        <div class="alert alert-info border-0 rounded-3 mb-4">
+                            {{ pending_count }} {{ plural_ru(pending_count, 'день', 'дня', 'дней') }} ещё ожидают оплаты.
+                            <a href="{{ path('web_order_group_pay', { paymentGroupUuid: payment_group_uuid }) }}">Перейти к оплате</a>
+                        </div>
+                    {% endif %}
+
+                    <div class="site-group-status-list">
+                        {% for order in orders %}
+                            {% set status = order.status.value %}
+                            <article class="site-group-status-row" id="order-row-{{ order.uuid }}">
+                                <div class="site-group-status-row__main">
+                                    <div>
+                                        <strong>№{{ order.humanNumber }}</strong>
+                                        <span class="text-muted"> · {{ day_label_ru(order.pickupDate) }}</span>
+                                    </div>
+                                    <strong>{{ order.totalAmount|money_rub }}</strong>
+                                </div>
+                                <div class="site-group-status-row__meta">
+                                    <span class="site-status-badge site-status-badge--sm{% if status == 'paid' %} is-paid{% elseif status == 'ready' %} is-ready{% endif %}"
+                                          data-status-badge="{{ order.uuid }}">
+                                        {{ order.status.label }}
+                                    </span>
+                                    <a href="{{ path('web_order_status', { uuid: order.uuid }) }}" class="small">Подробнее</a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="{{ path('web_home') }}" class="btn btn-outline-secondary site-btn-outline">Новый заказ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        const groupPollUrls = {{ orders|map(o => {
+            uuid: o.uuid ~ '',
+            url: path('api_orders_show', { uuid: o.uuid })
+        })|json_encode|raw }};
+
+        groupPollUrls.forEach(({ uuid, url }) => {
+            ganeshaPollOrder(url, (data) => {
+                const badge = document.querySelector('[data-status-badge="' + uuid + '"]');
+                if (!badge || !data.status_label) {
+                    return;
+                }
+
+                badge.textContent = data.status_label;
+                badge.classList.remove('is-paid', 'is-ready');
+                if (data.status === 'paid') {
+                    badge.classList.add('is-paid');
+                } else if (data.status === 'ready') {
+                    badge.classList.add('is-ready');
+                }
+            });
+        });
+    </script>
+{% endblock %}

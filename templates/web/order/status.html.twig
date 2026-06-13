@@ -1,0 +1,102 @@
+{% extends 'web/layout.html.twig' %}
+
+{% block title %}Заказ №{{ order.humanNumber }} · Ganesha{% endblock %}
+
+{% block body %}
+    <div class="container py-4">
+        <div class="row g-4 justify-content-center">
+            <div class="col-lg-7">
+                <div class="site-panel">
+                    {% set status = order.status.value %}
+                    <div class="site-status-badge mb-3{% if status == 'paid' %} is-paid{% elseif status == 'ready' %} is-ready{% endif %}" id="order-status-badge">
+                        {{ order.status.label }}
+                    </div>
+
+                    {% if payment_group_uuid %}
+                        <p class="mb-3">
+                            <a href="{{ path('web_order_group_status', { paymentGroupUuid: payment_group_uuid }) }}">
+                                ← Все {{ group_orders|length }} {{ plural_ru(group_orders|length, 'заказ', 'заказа', 'заказов') }} на неделю
+                            </a>
+                        </p>
+                    {% endif %}
+
+                    <h1 class="h3 mb-1">Заказ №{{ order.humanNumber }}</h1>
+                    <p class="text-muted mb-4">
+                        Самовывоз {{ day_label_ru(order.pickupDate) }}
+                        {% if order.pickupPoint %}
+                            · {{ order.pickupPoint.name }}, {{ order.pickupPoint.pickupHours }}
+                        {% endif %}
+                    </p>
+
+                    {% if status == 'pending_payment' %}
+                        <div class="alert alert-info border-0 rounded-3">
+                            {% if payment_group_uuid %}
+                                Заказ входит в группу из {{ group_orders|length }} {{ plural_ru(group_orders|length, 'заказ', 'заказа', 'заказов') }} на разные дни — оплата одним переводом.
+                                <a href="{{ path('web_order_group_pay', { paymentGroupUuid: payment_group_uuid }) }}">Перейти к оплате всей недели</a>
+                            {% else %}
+                                Заказ ожидает оплаты.
+                                <a href="{{ path('web_order_pay', { uuid: order.uuid }) }}">Перейти к оплате</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <ul class="site-checkout-list mb-4">
+                        {% for item in order.items %}
+                            {% set snap = item.dishSnapshot %}
+                            <li>
+                                <span>{{ snap.name }} × {{ item.quantity }}</span>
+                                <strong>{{ item.lineTotal|money_rub }}</strong>
+                            </li>
+                        {% endfor %}
+                        <li class="fw-bold">
+                            <span>Итого</span>
+                            <span id="order-total">{{ order.totalAmount|money_rub }}</span>
+                        </li>
+                    </ul>
+
+                    {% if order.comment %}
+                        <p class="mb-0"><span class="text-muted">Комментарий:</span> {{ order.comment }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="{{ path('web_home') }}" class="btn btn-outline-secondary site-btn-outline">Новый заказ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        const statusLabels = {{ {
+            pending_payment: 'Ожидает оплаты',
+            paid: 'Оплачен',
+            ready: 'Можно забирать',
+            completed: 'Выполнен',
+            cancelled: 'Отменён'
+        }|json_encode|raw }};
+
+        ganeshaPollOrder({{ path('api_orders_show', { uuid: order.uuid })|json_encode|raw }}, (data) => {
+            const badge = document.getElementById('order-status-badge');
+            if (!badge || !data.status_label) {
+                return;
+            }
+
+            badge.textContent = data.status_label;
+            badge.classList.remove('is-paid', 'is-ready');
+            if (data.status === 'paid') {
+                badge.classList.add('is-paid');
+            } else if (data.status === 'ready') {
+                badge.classList.add('is-ready');
+            }
+
+            if (data.status !== 'pending_payment') {
+                const payLink = document.querySelector('.alert-info');
+                if (payLink) {
+                    payLink.remove();
+                }
+            }
+        });
+    </script>
+{% endblock %}
