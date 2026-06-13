@@ -20,4 +20,15 @@ enum OrderStatus: string
             self::Cancelled => 'Отменён',
         };
     }
+
+    public function badgeType(): string
+    {
+        return match ($this) {
+            self::PendingPayment => 'warning',
+            self::Paid => 'success',
+            self::Ready => 'info',
+            self::Completed => 'secondary',
+            self::Cancelled => 'danger',
+        };
+    }
 }

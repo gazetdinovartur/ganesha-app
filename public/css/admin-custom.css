@@ -426,3 +426,12 @@ body.ganesha-dish-index table.datagrid td.actions .action-edit {
     font-weight: 600;
     margin-bottom: 0.75rem;
 }
+---
+
+.kitchen-filter-form {
+    width: 100%;
+}
+
+.kitchen-filter-form .form-control {
+    min-width: 11rem;
+}

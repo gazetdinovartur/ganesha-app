@@ -5,13 +5,16 @@
 {% block main %}
     {% set hasOrders = orders|length > 0 %}
 
-    <form method="get" class="row g-2 align-items-end mb-4 kitchen-filter-form">
-        <div class="col-auto">
+    <form method="get" class="kitchen-filter-form d-flex flex-wrap align-items-end gap-2 mb-4">
+        <div>
             <label class="form-label" for="date">Дата</label>
             <input type="date" class="form-control" id="date" name="date" value="{{ date.format('Y-m-d') }}">
         </div>
-        <div class="col-auto">
+        <div>
             <button class="btn btn-secondary" type="submit">Показать</button>
+        </div>
+        <div class="ms-auto">
+            <button class="btn btn-primary" type="submit" name="refresh" value="1">Обновить!</button>
         </div>
     </form>
 
@@ -57,10 +60,6 @@
                 <button name="batch_action" value="to_cancelled" class="btn btn-sm btn-outline-danger" type="submit">Отменить</button>
             </div>
         {% endif %}
-{#        <div class="d-flex flex-wrap gap-2 mb-3">#}
-{#            <button name="batch_action" value="all_paid_to_ready" class="btn btn-sm btn-warning" type="submit">Все «Оплачен» → «Можно забирать» за день</button>#}
-{#            <button name="batch_action" value="all_ready_to_completed" class="btn btn-sm btn-outline-warning" type="submit">Все «Можно забирать» → «Выполнен» за день</button>#}
-{#        </div>#}
 
         <table class="table table-sm table-hover align-middle">
             <thead>
@@ -79,7 +78,11 @@
                     <td>#{{ order.humanNumber }}</td>
                     <td>{{ order.customer.name }}<br><small class="text-muted">{{ order.customer.phone }}</small></td>
                     <td>{{ (order.totalAmount / 100)|number_format(2, ',', ' ') }} ₽</td>
-                    <td>{{ order.status.label }}</td>
+                    <td>
+                        <span class="badge rounded-pill text-bg-{{ order.status.badgeType() }}">
+                            {{ order.status.label }}
+                        </span>
+                    </td>
                 </tr>
             {% else %}
                 <tr><td colspan="5" class="text-muted">Заказов на этот день нет.</td></tr>

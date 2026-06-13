@@ -26,13 +26,15 @@ final class CustomerCrudController extends AbstractCrudController
             ->setEntityLabelInPlural('Клиенты')
             ->setPageTitle(Crud::PAGE_INDEX, 'Клиенты')
             ->setPageTitle(Crud::PAGE_DETAIL, static fn (Customer $customer): string => sprintf('Клиент: %s', $customer->getName() ?: '—'))
-            ->setDefaultSort(['createdAt' => 'DESC']);
+            ->setDefaultSort(['createdAt' => 'DESC'])
+            ->setDefaultRowAction(Action::DETAIL);
     }
 
     public function configureActions(Actions $actions): Actions
     {
         return $actions
-            ->disable(Action::NEW, Action::DELETE, Action::EDIT);
+            ->disable(Action::NEW, Action::DELETE, Action::EDIT)
+            ->add(Crud::PAGE_INDEX, Action::DETAIL);
     }
 
     public function configureFields(string $pageName): iterable
