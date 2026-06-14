@@ -16,13 +16,39 @@ class MenuDayDishRepository extends ServiceEntityRepository
 
     public function findOneForOrdering(int $id): ?MenuDayDish
     {
-        return $this->createQueryBuilder('md')
+        $indexed = $this->findByIdsForOrdering([$id]);
+
+        return $indexed[$id] ?? null;
+    }
+
+    /**
+     * @param list<int> $ids
+     *
+     * @return array<int, MenuDayDish>
+     */
+    public function findByIdsForOrdering(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        /** @var list<MenuDayDish> $rows */
+        $rows = $this->createQueryBuilder('md')
             ->innerJoin('md.menuDay', 'm')->addSelect('m')
             ->innerJoin('md.dish', 'd')->addSelect('d')
-            ->andWhere('md.id = :id')
-            ->setParameter('id', $id)
-            ->setMaxResults(1)
+            ->andWhere('md.id IN (:ids)')
+            ->setParameter('ids', $ids)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getResult();
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $id = $row->getId();
+            if ($id !== null) {
+                $indexed[$id] = $row;
+            }
+        }
+
+        return $indexed;
     }
 }

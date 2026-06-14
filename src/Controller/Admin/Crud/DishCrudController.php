@@ -57,7 +57,7 @@ final class DishCrudController extends AbstractCrudController
     public function configureActions(Actions $actions): Actions
     {
         return $actions
-            ->disable(Action::DETAIL);
+            ->disable(Action::DETAIL, Action::DELETE, Action::BATCH_DELETE);
     }
 
     public function configureFilters(Filters $filters): Filters

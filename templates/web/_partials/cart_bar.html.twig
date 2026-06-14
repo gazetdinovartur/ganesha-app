@@ -12,38 +12,42 @@
         </div>
 
         <div class="site-cart-drawer" x-show="cartOpen">
-            <template x-for="date in cartDates()" :key="date">
-                <section class="site-cart-day-group">
-                    <p class="site-cart-bar__date small mb-2 opacity-75" x-text="'Самовывоз · ' + formatDate(date)"></p>
+            <div class="site-cart-drawer__scroll">
+                <template x-for="date in cartDates()" :key="date">
+                    <section class="site-cart-day-group">
+                        <p class="site-cart-bar__date small mb-2 opacity-75" x-text="'Самовывоз · ' + formatDate(date)"></p>
 
-                    <template x-for="item in itemsForDate(date)" :key="date + '-' + item.menu_day_dish_id">
-                        <div class="site-cart-item">
-                            <div>
-                                <div class="site-cart-item__name" x-text="item.name"></div>
-                                <small x-text="item.quantity + ' × ' + formatRub(item.price)"></small>
+                        <template x-for="item in itemsForDate(date)" :key="date + '-' + item.menu_day_dish_id">
+                            <div class="site-cart-item">
+                                <div>
+                                    <div class="site-cart-item__name" x-text="item.name"></div>
+                                    <small x-text="item.quantity + ' × ' + formatRub(item.price)"></small>
+                                </div>
+                                <strong x-text="formatRub(item.price * item.quantity)"></strong>
                             </div>
-                            <strong x-text="formatRub(item.price * item.quantity)"></strong>
-                        </div>
-                    </template>
-                </section>
-            </template>
+                        </template>
+                    </section>
+                </template>
+            </div>
 
-            <div class="site-cart-actions">
-                <form method="post"
-                      action="{{ path('web_checkout_prepare') }}"
-                      class="flex-grow-1"
-                      @submit="submitPrepare">
-                    <input type="hidden" name="_token" value="{{ csrf_token('checkout_prepare') }}">
-                    <input type="hidden" name="items" x-ref="itemsField">
-                    <button type="submit"
-                            class="btn btn-light w-100 site-cart-bar__checkout-btn"
-                            :disabled="!canCheckout()">
-                        Оформить заказ
-                    </button>
-                </form>
-                <a href="{{ path('web_home') }}"
-                   class="btn btn-outline-light site-cart-bar__menu-btn"
-                   title="Вернуться к меню">Меню</a>
+            <div class="site-cart-drawer__footer">
+                <div class="site-cart-actions">
+                    <form method="post"
+                          action="{{ path('web_checkout_prepare') }}"
+                          class="flex-grow-1"
+                          @submit="submitPrepare">
+                        <input type="hidden" name="_token" value="{{ csrf_token('checkout_prepare') }}">
+                        <input type="hidden" name="items" x-ref="itemsField">
+                        <button type="submit"
+                                class="btn btn-light w-100 site-cart-bar__checkout-btn"
+                                :disabled="!canCheckout()">
+                            Оформить заказ
+                        </button>
+                    </form>
+                    <a href="{{ path('web_home') }}"
+                       class="btn btn-outline-light site-cart-bar__menu-btn"
+                       title="Вернуться к меню">Меню</a>
+                </div>
             </div>
         </div>
     </div>

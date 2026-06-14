@@ -91,16 +91,22 @@ final class PaymentService
             return $pendingOrders[0];
         }
 
+        $pendingToPay = array_values(array_filter(
+            $pendingOrders,
+            static fn (Order $order): bool => $order->getStatus() === OrderStatus::PendingPayment,
+        ));
+
+        if ($pendingToPay === []) {
+            return $pendingOrders[0];
+        }
+
         if ($amountKopecks !== null && $amountKopecks !== $expectedTotal) {
             throw new PaymentConfirmationException('Сумма платежа не совпадает с заказом.', 422, 'amount_mismatch');
         }
 
-        foreach ($pendingOrders as $groupOrder) {
-            if ($groupOrder->getStatus() !== OrderStatus::PendingPayment) {
-                continue;
-            }
+        $this->orderStatusService->markManyAsPaid($pendingToPay);
 
-            $this->orderStatusService->markAsPaid($groupOrder);
+        foreach ($pendingToPay as $groupOrder) {
             $this->notificationService->orderPaid($groupOrder, $externalId);
         }
 

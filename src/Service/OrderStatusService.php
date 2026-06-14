@@ -14,14 +14,38 @@ final class OrderStatusService
     ) {
     }
 
-    public function markAsPaid(Order $order): void
+    public function markAsPaid(Order $order, bool $flush = true): void
     {
         if ($order->getStatus() === OrderStatus::Cancelled || $order->getStatus() === OrderStatus::Paid) {
             return;
         }
 
         $this->applyStatus($order, OrderStatus::Paid);
-        $this->entityManager->flush();
+
+        if ($flush) {
+            $this->entityManager->flush();
+        }
+    }
+
+    /**
+     * @param list<Order> $orders
+     */
+    public function markManyAsPaid(array $orders): void
+    {
+        $changed = false;
+
+        foreach ($orders as $order) {
+            if ($order->getStatus() === OrderStatus::Cancelled || $order->getStatus() === OrderStatus::Paid) {
+                continue;
+            }
+
+            $this->applyStatus($order, OrderStatus::Paid);
+            $changed = true;
+        }
+
+        if ($changed) {
+            $this->entityManager->flush();
+        }
     }
 
     public function updateStatus(Order $order, OrderStatus $status): void

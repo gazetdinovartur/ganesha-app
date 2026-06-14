@@ -96,7 +96,9 @@ final class OrderServiceTest extends TestCase
         $menuDayDish->method('incrementOrderedPortions');
 
         $menuDayDishRepository = $this->createMock(MenuDayDishRepository::class);
-        $menuDayDishRepository->method('findOneForOrdering')->with(1)->willReturn($menuDayDish);
+        $menuDayDishRepository->method('findByIdsForOrdering')->willReturnCallback(
+            static fn (array $ids): array => isset($ids[0]) && $ids[0] === 1 ? [1 => $menuDayDish] : [],
+        );
 
         $customer = (new Customer())->setPhone('+79123456789')->setName('Анна');
         $customerService = $this->createMock(CustomerService::class);

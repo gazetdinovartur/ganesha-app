@@ -1,0 +1,47 @@
+{% extends '@EasyAdmin/crud/index.html.twig' %}
+
+{% macro period_url(controller, range, start) %}
+    {% set url = ea_url().setController(controller).setAction('index').set('range', range).set('start', start) %}
+    {{ url }}
+{% endmacro %}
+
+{% block page_actions %}
+    {% if menuDayPeriod is defined %}
+        {% set controller = ea.request.attributes.get('crudControllerFqcn') %}
+        <div class="kitchen-range-nav me-2" role="group" aria-label="Период дней меню">
+            <a href="{{ _self.period_url(controller, 'month', menuDayPeriod.prevMonthStart) }}"
+               class="kitchen-range-btn">
+                ← Месяц
+            </a>
+            <a href="{{ _self.period_url(controller, 'week', menuDayPeriod.prevWeekStart) }}"
+               class="kitchen-range-btn">
+                ← Неделя
+            </a>
+            {% if menuDayPeriod.isCurrentWeek %}
+                <span class="kitchen-range-btn is-active">Текущая неделя</span>
+            {% else %}
+                <a href="{{ ea_url().setController(controller).setAction('index').unset('start').unset('range') }}"
+                   class="kitchen-range-btn"
+                   title="Текущая неделя">
+                    Текущая неделя
+                </a>
+            {% endif %}
+            <a href="{{ _self.period_url(controller, 'week', menuDayPeriod.nextWeekStart) }}"
+               class="kitchen-range-btn">
+                Неделя →
+            </a>
+            <a href="{{ _self.period_url(controller, 'month', menuDayPeriod.nextMonthStart) }}"
+               class="kitchen-range-btn">
+                Месяц →
+            </a>
+        </div>
+    {% endif %}
+    {{ parent() }}
+{% endblock %}
+
+{% block main %}
+    {% if menuDayPeriod is defined and menuDayPeriod.filterActive %}
+        <p class="text-muted small mb-3">{{ menuDayPeriod.periodLabel }}</p>
+    {% endif %}
+    {{ parent() }}
+{% endblock %}

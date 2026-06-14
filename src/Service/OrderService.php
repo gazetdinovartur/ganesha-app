@@ -52,15 +52,24 @@ class OrderService
 
         return $this->entityManager->wrapInTransaction(function () use ($dtos, $paymentGroupUuid): array {
             $orders = [];
+            $nextHumanNumber = $this->orderRepository->getNextHumanNumber();
+
             foreach ($dtos as $dto) {
-                $orders[] = $this->createOrder($dto, $paymentGroupUuid);
+                $orders[] = $this->createOrder($dto, $paymentGroupUuid, $nextHumanNumber);
+                ++$nextHumanNumber;
+            }
+
+            $this->entityManager->flush();
+
+            foreach ($orders as $order) {
+                $this->notificationService->newOrderForAdmin($order);
             }
 
             return $orders;
         });
     }
 
-    private function createOrder(CreateOrderDto $dto, ?Uuid $paymentGroupUuid): Order
+    private function createOrder(CreateOrderDto $dto, ?Uuid $paymentGroupUuid, int $humanNumber): Order
     {
         if ($dto->items === []) {
             throw new OrderCreationException('Добавьте хотя бы одно блюдо.', 422, 'items_required');
@@ -94,7 +103,7 @@ class OrderService
         }
 
         $order = (new Order())
-            ->setHumanNumber($this->orderRepository->getNextHumanNumber())
+            ->setHumanNumber($humanNumber)
             ->setCustomer($customer)
             ->setPickupDate($pickupDate)
             ->setPickupPoint($pickupPoint)
@@ -125,9 +134,6 @@ class OrderService
 
         $order->recalculateTotal();
         $this->entityManager->persist($order);
-        $this->entityManager->flush();
-
-        $this->notificationService->newOrderForAdmin($order);
 
         return $order;
     }
@@ -198,10 +204,12 @@ class OrderService
      */
     private function resolveMenuDayDishes(array $items, \DateTimeImmutable $pickupDate): array
     {
+        $ids = array_map(static fn (CreateOrderItemDto $item): int => $item->menuDayDishId, $items);
+        $loaded = $this->menuDayDishRepository->findByIdsForOrdering($ids);
         $resolved = [];
 
         foreach ($items as $item) {
-            $menuDayDish = $this->menuDayDishRepository->findOneForOrdering($item->menuDayDishId);
+            $menuDayDish = $loaded[$item->menuDayDishId] ?? null;
             if ($menuDayDish === null) {
                 throw new OrderCreationException('Позиция меню не найдена.', 422, 'menu_item_not_found');
             }

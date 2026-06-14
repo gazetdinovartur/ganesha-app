@@ -7,6 +7,7 @@ use App\Service\KitchenSummaryService;
 use App\Service\OrderStatusService;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -18,15 +19,28 @@ final class KitchenController extends AbstractController
     public function __construct(
         private readonly KitchenSummaryService $kitchenSummaryService,
         private readonly OrderStatusService $orderStatusService,
+        #[Autowire(param: 'app.timezone')]
+        private readonly string $timezone,
     ) {
     }
 
     public function __invoke(Request $request): Response
     {
+        $timezone = new \DateTimeZone($this->timezone);
+        $today = new \DateTimeImmutable('today', $timezone);
+        $tomorrow = $today->modify('+1 day');
+        $weekStart = $today->modify('monday this week');
+        $weekEnd = $weekStart->modify('+6 days');
+
+        $range = (string) ($request->query->get('range') ?? $request->request->get('range', ''));
+        $isWeekView = $range === 'week';
+
         $dateParam = $request->query->get('date') ?? $request->request->get('date');
-        $date = $dateParam
-            ? new \DateTimeImmutable((string) $dateParam)
-            : new \DateTimeImmutable('today');
+        $date = $isWeekView
+            ? $weekStart
+            : ($dateParam
+                ? new \DateTimeImmutable((string) $dateParam, $timezone)
+                : $today);
 
         if ($request->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('kitchen_batch', (string) $request->request->get('_token'))) {
@@ -35,12 +49,22 @@ final class KitchenController extends AbstractController
             $this->handleBatch($request, $date);
         }
 
-        $orders = $this->kitchenSummaryService->getOrdersForDate($date);
-        $summaryAll = $this->kitchenSummaryService->getPortionSummary($date);
-        $summaryPaid = $this->kitchenSummaryService->getPortionSummary($date, OrderStatus::Paid);
+        if ($isWeekView) {
+            $orders = $this->kitchenSummaryService->getOrdersForDateRange($weekStart, $weekEnd);
+        } else {
+            $orders = $this->kitchenSummaryService->getOrdersForDate($date);
+        }
+
+        $summaryAll = $this->kitchenSummaryService->buildPortionSummary($orders);
+        $summaryPaid = $this->kitchenSummaryService->buildPortionSummary($orders, OrderStatus::Paid);
 
         return $this->render('admin/kitchen.html.twig', [
+            'viewMode' => $isWeekView ? 'week' : 'day',
             'date' => $date,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'tomorrow' => $tomorrow,
+            'today' => $today,
             'orders' => $orders,
             'summaryAll' => $summaryAll,
             'summaryPaid' => $summaryPaid,

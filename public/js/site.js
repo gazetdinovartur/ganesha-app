@@ -30,6 +30,30 @@
             this.save(items);
         },
 
+        removeItem(date, menuDayDishId) {
+            const items = this.load().filter(
+                (item) => !(item.date === date && item.menu_day_dish_id === menuDayDishId),
+            );
+            this.save(items);
+        },
+
+        itemsFromGroups(groups) {
+            const items = [];
+            for (const group of groups) {
+                for (const item of group.items || []) {
+                    items.push({
+                        menu_day_dish_id: item.menu_day_dish_id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity,
+                        date: group.pickup_date,
+                    });
+                }
+            }
+
+            return items;
+        },
+
         formatRub(kopecks) {
             return new Intl.NumberFormat('ru-RU', {
                 style: 'currency',
@@ -159,6 +183,9 @@
                         this.activeDate = lastDate;
                     }
                 }
+                window.addEventListener('ganesha-cart-changed', () => {
+                    this.items = GaneshaCart.load();
+                });
             },
 
             firstOrderableDate() {
@@ -295,6 +322,93 @@
                 }
 
                 this.persistCart();
+            },
+        }));
+
+        Alpine.data('ganeshaCheckoutSummary', (initialGroups, options) => ({
+            groups: initialGroups,
+            homeUrl: options?.homeUrl ?? '/',
+
+            init() {
+                this.syncFormField();
+            },
+
+            formatRub(kopecks) {
+                return GaneshaCart.formatRub(kopecks);
+            },
+
+            formatDayLabel(isoDate) {
+                const date = new Date(isoDate + 'T12:00:00');
+                const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' }).format(date);
+                const dayMonth = new Intl.DateTimeFormat('ru-RU', {
+                    day: 'numeric',
+                    month: 'long',
+                }).format(date);
+
+                return weekday.charAt(0).toUpperCase() + weekday.slice(1) + ', ' + dayMonth;
+            },
+
+            dayCountLabel() {
+                const count = this.groups.length;
+                if (count === 1) {
+                    return 'Самовывоз';
+                }
+
+                return count + ' ' + GaneshaCart.pluralRu(count, 'день', 'дня', 'дней') + ' самовывоза';
+            },
+
+            orderCountLabel() {
+                const count = this.groups.length;
+
+                return count + ' ' + GaneshaCart.pluralRu(count, 'заказ', 'заказа', 'заказов');
+            },
+
+            cartTotalKopecks() {
+                return this.groups.reduce((sum, group) => {
+                    return sum + (group.items || []).reduce(
+                        (groupSum, item) => groupSum + item.price * item.quantity,
+                        0,
+                    );
+                }, 0);
+            },
+
+            removeItem(pickupDate, menuDayDishId) {
+                this.groups = this.groups
+                    .map((group) => {
+                        if (group.pickup_date !== pickupDate) {
+                            return group;
+                        }
+
+                        return {
+                            ...group,
+                            items: (group.items || []).filter(
+                                (item) => item.menu_day_dish_id !== menuDayDishId,
+                            ),
+                        };
+                    })
+                    .filter((group) => (group.items || []).length > 0);
+
+                if (this.groups.length === 0) {
+                    GaneshaCart.save([]);
+                    window.location.href = this.homeUrl;
+
+                    return;
+                }
+
+                GaneshaCart.save(GaneshaCart.itemsFromGroups(this.groups));
+                this.syncFormField();
+            },
+
+            syncFormField() {
+                const fieldId = options?.cartFieldId;
+                if (!fieldId) {
+                    return;
+                }
+
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.value = JSON.stringify(this.groups);
+                }
             },
         }));
     }

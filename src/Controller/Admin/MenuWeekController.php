@@ -26,6 +26,8 @@ final class MenuWeekController extends AbstractController
             : new \DateTimeImmutable('today');
         $start = $rawStart->modify('monday this week');
 
+        $this->menuDayService->ensureMonthFromToday();
+
         if ($request->isMethod('POST')) {
             $this->menuDayService->ensureWeekFrom($start, 7);
             $this->addFlash('success', 'Созданы/обновлены дни на неделю вперёд.');

@@ -22,10 +22,36 @@ final class KitchenSummaryService
     }
 
     /**
+     * @return list<Order>
+     */
+    public function getOrdersForDateRange(\DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return $this->orderRepository->findByPickupDateRange($from, $to);
+    }
+
+    /**
+     * @param list<Order> $orders
+     *
      * @return array<string, int> dish name => total portions
      */
-    public function getPortionSummary(\DateTimeImmutable $date, ?OrderStatus $status = null): array
+    public function buildPortionSummary(array $orders, ?OrderStatus $status = null): array
     {
-        return $this->orderRepository->getPortionSummaryForDate($date, $status);
+        $summary = [];
+
+        foreach ($orders as $order) {
+            if ($status !== null && $order->getStatus() !== $status) {
+                continue;
+            }
+
+            foreach ($order->getItems() as $item) {
+                $snapshot = $item->getDishSnapshot();
+                $name = (string) ($snapshot['name'] ?? 'Блюдо');
+                $summary[$name] = ($summary[$name] ?? 0) + $item->getQuantity();
+            }
+        }
+
+        ksort($summary);
+
+        return $summary;
     }
 }

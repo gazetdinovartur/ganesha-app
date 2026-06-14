@@ -3,8 +3,8 @@
 namespace App\Repository;
 
 use App\Entity\Order;
-use App\Enum\OrderStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -32,7 +32,11 @@ class OrderRepository extends ServiceEntityRepository
             return null;
         }
 
-        return $this->findOneBy(['uuid' => Uuid::fromString($uuid)]);
+        return $this->createOrderDetailsQueryBuilder()
+            ->andWhere('o.uuid = :uuid')
+            ->setParameter('uuid', Uuid::fromString($uuid), 'uuid')
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function findOneByRepeatToken(string $repeatToken): ?Order
@@ -42,7 +46,19 @@ class OrderRepository extends ServiceEntityRepository
             return null;
         }
 
-        return $this->findOneBy(['repeatToken' => $repeatToken]);
+        return $this->createOrderDetailsQueryBuilder()
+            ->andWhere('o.repeatToken = :token')
+            ->setParameter('token', $repeatToken)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    private function createOrderDetailsQueryBuilder(): QueryBuilder
+    {
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.customer', 'c')->addSelect('c')
+            ->leftJoin('o.items', 'i')->addSelect('i')
+            ->leftJoin('o.pickupPoint', 'p')->addSelect('p');
     }
 
     /**
@@ -77,26 +93,20 @@ class OrderRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<string, int>
+     * @return list<Order>
      */
-    public function getPortionSummaryForDate(\DateTimeImmutable $date, ?OrderStatus $status = null): array
+    public function findByPickupDateRange(\DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
-        $summary = [];
-
-        foreach ($this->findByPickupDate($date) as $order) {
-            if ($status !== null && $order->getStatus() !== $status) {
-                continue;
-            }
-
-            foreach ($order->getItems() as $item) {
-                $snapshot = $item->getDishSnapshot();
-                $name = (string) ($snapshot['name'] ?? 'Блюдо');
-                $summary[$name] = ($summary[$name] ?? 0) + $item->getQuantity();
-            }
-        }
-
-        ksort($summary);
-
-        return $summary;
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.customer', 'c')->addSelect('c')
+            ->leftJoin('o.items', 'i')->addSelect('i')
+            ->andWhere('o.pickupDate >= :from')
+            ->andWhere('o.pickupDate <= :to')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->orderBy('o.pickupDate', 'ASC')
+            ->addOrderBy('o.humanNumber', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

@@ -2,58 +2,59 @@
 
 {% block title %}Оформление заказа · Ganesha{% endblock %}
 
-{% block body %}
-    {% set cart_total = 0 %}
-    {% for group in cart.groups %}
-        {% for item in group.items %}
-            {% set cart_total = cart_total + (item.price * item.quantity) %}
-        {% endfor %}
-    {% endfor %}
+{% block head %}
+    <script>
+        window.__GANESHA_CHECKOUT_CART__ = {{ cart.groups|json_encode|raw }};
+        window.__GANESHA_CHECKOUT_OPTIONS__ = {
+            cartFieldId: {{ form.cartGroupsJson.vars.id|json_encode|raw }},
+            homeUrl: {{ path('web_home')|json_encode|raw }},
+        };
+    </script>
+{% endblock %}
 
-    <div class="container py-4 py-lg-5">
+{% block body %}
+    <div class="container py-4 py-lg-5"
+         x-data="ganeshaCheckoutSummary(window.__GANESHA_CHECKOUT_CART__ || [], window.__GANESHA_CHECKOUT_OPTIONS__ || {})">
         <div class="row g-4 g-lg-5 justify-content-center">
             <div class="col-lg-5">
                 <div class="site-panel site-checkout-summary h-100">
                     <p class="site-checkout-summary__eyebrow mb-2">Ваш заказ</p>
-                    <h1 class="h3 mb-1">
-                        {% set day_count = cart.groups|length %}
-                        {% if day_count == 1 %}
-                            Самовывоз
-                        {% else %}
-                            {{ day_count }} {{ plural_ru(day_count, 'день', 'дня', 'дней') }} самовывоза
-                        {% endif %}
-                    </h1>
+                    <h1 class="h3 mb-1" x-text="dayCountLabel()"></h1>
 
-                    {% for group in cart.groups %}
-                        <section class="site-checkout-day{% if not loop.last %} mb-4{% endif %}">
-                            <p class="site-checkout-summary__date mb-3">{{ day_label_ru(group.pickup_date) }}</p>
+                    <template x-for="(group, groupIndex) in groups" :key="group.pickup_date">
+                        <section class="site-checkout-day" :class="{ 'mb-4': groupIndex < groups.length - 1 }">
+                            <p class="site-checkout-summary__date mb-3" x-text="formatDayLabel(group.pickup_date)"></p>
 
                             <ul class="site-checkout-list mb-0">
-                                {% for item in group.items %}
-                                    <li>
-                                        <span class="site-checkout-list__name">{{ item.name }} × {{ item.quantity }}</span>
-                                        <strong>{{ (item.price * item.quantity)|money_rub }}</strong>
+                                <template x-for="item in group.items" :key="group.pickup_date + '-' + item.menu_day_dish_id">
+                                    <li class="site-checkout-list__row">
+                                        <span class="site-checkout-list__name" x-text="item.name + ' × ' + item.quantity"></span>
+                                        <strong class="site-checkout-list__price" x-text="formatRub(item.price * item.quantity)"></strong>
+                                        <button type="button"
+                                                class="site-checkout-list__remove"
+                                                @click="removeItem(group.pickup_date, item.menu_day_dish_id)"
+                                                aria-label="Убрать из заказа"
+                                                title="Убрать">×</button>
                                     </li>
-                                {% endfor %}
+                                </template>
                             </ul>
                         </section>
-                    {% endfor %}
+                    </template>
 
                     <div class="site-checkout-total d-flex justify-content-between align-items-center mt-4">
                         <span>Итого</span>
-                        <strong class="site-checkout-total__amount">{{ cart_total|money_rub }}</strong>
+                        <strong class="site-checkout-total__amount" x-text="formatRub(cartTotalKopecks())"></strong>
                     </div>
 
-                    {% if cart.groups|length > 1 %}
-                        {% set order_count = cart.groups|length %}
-                        <p class="site-checkout-summary__hint small text-muted mt-4 mb-0">
-                            Будет создано {{ order_count }} {{ plural_ru(order_count, 'заказ', 'заказа', 'заказов') }} — по одному на каждый день. Оплата одним переводом на общую сумму.
-                        </p>
-                    {% else %}
-                        <p class="site-checkout-summary__hint small text-muted mt-4 mb-0">
-                            После подтверждения вы перейдёте к оплате. Корзина сохранится, если вернётесь к меню.
-                        </p>
-                    {% endif %}
+                    <p class="site-checkout-summary__hint small text-muted mt-4 mb-0"
+                       x-show="groups.length > 1"
+                       x-cloak
+                       x-text="'Будет создано ' + orderCountLabel() + ' — по одному на каждый день. Оплата одним переводом на общую сумму.'"></p>
+                    <p class="site-checkout-summary__hint small text-muted mt-4 mb-0"
+                       x-show="groups.length === 1"
+                       x-cloak>
+                        После подтверждения вы перейдёте к оплате. Корзина сохранится, если вернётесь к меню.
+                    </p>
                 </div>
             </div>
 
@@ -103,12 +104,8 @@
 
                         <div class="site-form-actions">
                             <button type="submit" class="btn btn-primary site-btn-primary">
-                                {% if cart.groups|length > 1 %}
-                                    {% set order_count = cart.groups|length %}
-                                    Подтвердить {{ order_count }} {{ plural_ru(order_count, 'заказ', 'заказа', 'заказов') }}
-                                {% else %}
-                                    Подтвердить заказ
-                                {% endif %}
+                                <span x-show="groups.length > 1" x-text="'Подтвердить ' + orderCountLabel()"></span>
+                                <span x-show="groups.length <= 1">Подтвердить заказ</span>
                             </button>
                             <a href="{{ path('web_home') }}" class="btn btn-outline-secondary site-btn-outline">
                                 Вернуться к меню
