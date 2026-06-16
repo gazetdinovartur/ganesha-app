@@ -1,0 +1,21 @@
+{% extends '@!EasyAdmin/layout.html.twig' %}
+
+{% block head_favicon %}
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/seo/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('images/seo/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/seo/apple-touch-icon.png') }}">
+{% endblock %}
+
+{% block header_logo %}
+    <a class="logo ganesha-admin-sidebar-logo" title="Ganesha" href="{{ path(ea.dashboardRouteName) }}">
+        {% include 'admin/_partials/brand.html.twig' with { variant: 'sidebar' } %}
+    </a>
+{% endblock %}
+
+{% block responsive_header_logo %}
+    {% include 'admin/_partials/brand.html.twig' with {
+        variant: 'sidebar',
+        wrapper_class: 'responsive-logo',
+        as_link: true,
+    } %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{
+    "name": "Ganesha — вегетарианское питание",
+    "short_name": "Ganesha",
+    "description": "Вегетарианское питание с самовывозом в Екатеринбурге",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#f7f5f0",
+    "theme_color": "#3d6b4f",
+    "lang": "ru",
+    "icons": [
+        {
+            "src": "/images/seo/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/seo/favicon-32x32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+        }
+    ]
+}

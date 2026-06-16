@@ -66,12 +66,21 @@ body.site-body {
 
 .site-brand__mark {
     display: grid;
+    flex-shrink: 0;
     place-items: center;
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 999px;
-    background: var(--ganesha-primary-soft);
-    font-size: 1.25rem;
+    overflow: hidden;
+    background: var(--ganesha-surface);
+    box-shadow: inset 0 0 0 1px var(--ganesha-border);
+}
+
+.site-brand__mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .site-brand__text {

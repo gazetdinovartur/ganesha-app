@@ -36,7 +36,8 @@ final class DashboardController extends AbstractDashboardController
     public function configureDashboard(): \EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard
     {
         return \EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard::new()
-            ->setTitle('Ganesha · админка');
+            ->setTitle('Ganesha · админка')
+            ->setFaviconPath('images/seo/favicon-32x32.png');
     }
 
     public function configureAssets(): Assets

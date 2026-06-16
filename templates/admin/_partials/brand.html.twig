@@ -1,0 +1,17 @@
+{% set is_link = as_link|default(false) %}
+{% set variant = variant|default('sidebar') %}
+{% if is_link %}
+<a
+{% else %}
+<span
+{% endif %}
+    class="ganesha-admin-brand ganesha-admin-brand--{{ variant }}{% if wrapper_class|default('') %} {{ wrapper_class }}{% endif %}"
+    {% if is_link %}href="{{ path('admin') }}" aria-label="Ganesha — на главную админки"{% else %}aria-hidden="true"{% endif %}>
+    <span class="ganesha-admin-brand__mark">
+        <img src="{{ asset('logo.png') }}" alt="Ganesha" decoding="async">
+    </span>
+{% if is_link %}
+</a>
+{% else %}
+</span>
+{% endif %}

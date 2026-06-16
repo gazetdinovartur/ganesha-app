@@ -2,6 +2,8 @@
 
 {% block title %}Меню · Ganesha{% endblock %}
 
+{% block seo_description %}Меню на неделю: вегетарианские блюда с самовывозом в Екатеринбурге. Предзаказ до 18:00, выдача в центре йоги «Хануман».{% endblock %}
+
 {% block head %}
     <script>window.__GANESHA_MENU_DAYS__ = {{ menu.days|json_encode|raw }};</script>
 {% endblock %}

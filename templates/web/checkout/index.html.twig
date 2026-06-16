@@ -2,6 +2,9 @@
 
 {% block title %}Оформление заказа · Ganesha{% endblock %}
 
+{% block seo_description %}Оформление предзаказа вегетарианского питания Ganesha.{% endblock %}
+{% block seo_robots %}noindex,nofollow{% endblock %}
+
 {% block head %}
     <script>
         window.__GANESHA_CHECKOUT_CART__ = {{ cart.groups|json_encode|raw }};

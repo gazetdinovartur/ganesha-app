@@ -5,7 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#3d6b4f">
     <title>{% block title %}Ganesha · питание{% endblock %}</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+    {% block seo %}
+        {% set seo_page_description %}
+            {% block seo_description %}{{ site_seo.defaultDescription }}{% endblock %}
+        {% endset %}
+        {% set seo_page_robots %}
+            {% block seo_robots %}index,follow{% endblock %}
+        {% endset %}
+        {% include 'web/_partials/seo_meta.html.twig' with {
+            seo_title: block('title'),
+            seo_description: seo_page_description|trim,
+            seo_robots: seo_page_robots|trim,
+        } %}
+    {% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,8 +28,10 @@
 <body class="site-body">
     <header class="site-header">
         <div class="container site-header__inner">
-            <a class="site-brand" href="{{ path('web_home') }}">
-                <span class="site-brand__mark" aria-hidden="true">🌿</span>
+            <a class="site-brand" href="{{ path('web_home') }}" aria-label="Ganesha — вегетарианское питание, на главную">
+                <span class="site-brand__mark" aria-hidden="true">
+                    <img src="{{ asset('logo.png') }}" alt="Ganesha" width="40" height="40" decoding="async">
+                </span>
                 <span class="site-brand__text">
                     <strong>Ganesha</strong>
                     <small>вегетарианское питание</small>
